@@ -45,7 +45,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2
 ;
 const metadata = {
     title: 'WAKOLOSAI | Go Further',
-    description: 'Wlcome to the Presence of the All Mighty.',
+    description: 'Welcome to the Presence of the All Mighty.',
     generator: 'app',
     icons: {
         icon: [

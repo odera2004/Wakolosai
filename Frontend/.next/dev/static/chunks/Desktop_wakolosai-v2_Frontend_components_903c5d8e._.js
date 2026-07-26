@@ -2,278 +2,118 @@
 "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx [app-client] (ecmascript)", ((__turbopack_context__) => {
 "use strict";
 
-__turbopack_context__.s([
-    "Header",
-    ()=>Header
-]);
-var __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/Desktop/wakolosai-v2/Frontend/node_modules/next/dist/compiled/react/jsx-dev-runtime.js [app-client] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/Desktop/wakolosai-v2/Frontend/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/Desktop/wakolosai-v2/Frontend/node_modules/next/dist/client/app-dir/link.js [app-client] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$menu$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Menu$3e$__ = __turbopack_context__.i("[project]/Desktop/wakolosai-v2/Frontend/node_modules/lucide-react/dist/esm/icons/menu.js [app-client] (ecmascript) <export default as Menu>");
-var __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$x$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__X$3e$__ = __turbopack_context__.i("[project]/Desktop/wakolosai-v2/Frontend/node_modules/lucide-react/dist/esm/icons/x.js [app-client] (ecmascript) <export default as X>");
-;
-var _s = __turbopack_context__.k.signature();
+__turbopack_context__.s([]);
 "use client";
 ;
-;
-;
-function Header() {
-    _s();
-    const [isMenuOpen, setIsMenuOpen] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
-    const [isScrolled, setIsScrolled] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
-    (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
-        "Header.useEffect": ()=>{
-            const handleScroll = {
-                "Header.useEffect.handleScroll": ()=>{
-                    setIsScrolled(window.scrollY > 50);
-                }
-            }["Header.useEffect.handleScroll"];
-            window.addEventListener("scroll", handleScroll, {
-                passive: true
-            });
-            return ({
-                "Header.useEffect": ()=>window.removeEventListener("scroll", handleScroll)
-            })["Header.useEffect"];
-        }
-    }["Header.useEffect"], []);
-    // Smooth scroll helper
-    const scrollTo = (id)=>{
-        setIsMenuOpen(false);
-        const element = document.getElementById(id);
-        element?.scrollIntoView({
-            behavior: "smooth"
-        });
-    };
-    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("header", {
-        className: `fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl transition-all duration-500 ${isScrolled ? "bg-[#0f172a]/40 backdrop-blur-xl border border-[#fafaf0]/10 rounded-full py-1" : "bg-transparent py-4"}`,
-        style: {
-            boxShadow: isScrolled ? "0 20px 40px rgba(0,0,0,0.3)" : "none"
-        },
-        children: [
-            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "flex items-center justify-between px-6",
-                children: [
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "flex items-center gap-3",
-                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                            href: "/",
-                            className: "flex flex-col",
-                            children: [
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                    className: `text-xl font-bold tracking-[0.2em] transition-colors duration-300 ${isScrolled ? "text-[#fafaf0]" : "text-white"}`,
-                                    children: "WAKOLOSAI"
-                                }, void 0, false, {
-                                    fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                                    lineNumber: 43,
-                                    columnNumber: 13
-                                }, this),
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                    className: `text-[10px] uppercase tracking-widest font-serif italic transition-opacity duration-300 ${isScrolled ? "text-[#8c6239] opacity-100" : "opacity-0"}`,
-                                    children: "The Awakening"
-                                }, void 0, false, {
-                                    fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                                    lineNumber: 46,
-                                    columnNumber: 13
-                                }, this)
-                            ]
-                        }, void 0, true, {
-                            fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                            lineNumber: 42,
-                            columnNumber: 11
-                        }, this)
-                    }, void 0, false, {
-                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                        lineNumber: 41,
-                        columnNumber: 9
-                    }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("nav", {
-                        className: "hidden items-center gap-8 md:flex",
-                        children: [
-                            {
-                                name: "The Sound",
-                                id: "about"
-                            },
-                            {
-                                name: "The Movement",
-                                id: "gallery"
-                            },
-                            {
-                                name: "The Awakening",
-                                id: "lineup"
-                            }
-                        ].map((item)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                onClick: ()=>scrollTo(item.id),
-                                className: `text-xs uppercase tracking-widest transition-all hover:tracking-[0.3em] ${isScrolled ? "text-[#fafaf0]/70 hover:text-[#8c6239]" : "text-white/80 hover:text-white"}`,
-                                children: item.name
-                            }, item.name, false, {
-                                fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                                lineNumber: 59,
-                                columnNumber: 13
-                            }, this))
-                    }, void 0, false, {
-                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                        lineNumber: 53,
-                        columnNumber: 9
-                    }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                        className: "hidden items-center gap-4 md:flex",
-                        children: [
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "flex items-center gap-2 mr-2",
-                                children: [
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                        className: "relative flex h-2 w-2",
-                                        children: [
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                className: "animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8c6239] opacity-75"
-                                            }, void 0, false, {
-                                                fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                                                lineNumber: 75,
-                                                columnNumber: 21
-                                            }, this),
-                                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                className: "relative inline-flex rounded-full h-2 w-2 bg-[#8c6239]"
-                                            }, void 0, false, {
-                                                fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                                                lineNumber: 76,
-                                                columnNumber: 21
-                                            }, this)
-                                        ]
-                                    }, void 0, true, {
-                                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                                        lineNumber: 74,
-                                        columnNumber: 17
-                                    }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                        className: `text-[10px] uppercase tracking-tighter ${isScrolled ? "text-[#fafaf0]/50" : "text-white/50"}`,
-                                        children: "Live Now"
-                                    }, void 0, false, {
-                                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                                        lineNumber: 78,
-                                        columnNumber: 17
-                                    }, this)
-                                ]
-                            }, void 0, true, {
-                                fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                                lineNumber: 73,
-                                columnNumber: 13
-                            }, this),
-                            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                onClick: ()=>scrollTo("tickets"),
-                                className: `px-6 py-2.5 text-[11px] uppercase tracking-widest font-bold transition-all rounded-full ${isScrolled ? "bg-[#8c6239] text-[#fafaf0] hover:bg-[#a67c52] shadow-lg shadow-[#8c6239]/20" : "bg-white text-[#0f172a] hover:bg-[#fafaf0]"}`,
-                                children: "Secure Your Place"
-                            }, void 0, false, {
-                                fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                                lineNumber: 81,
-                                columnNumber: 11
-                            }, this)
-                        ]
-                    }, void 0, true, {
-                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                        lineNumber: 72,
-                        columnNumber: 9
-                    }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                        type: "button",
-                        onClick: ()=>setIsMenuOpen(!isMenuOpen),
-                        className: `transition-colors md:hidden ${isScrolled ? "text-[#fafaf0]" : "text-white"}`,
-                        children: isMenuOpen ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$x$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__X$3e$__["X"], {
-                            size: 20
-                        }, void 0, false, {
-                            fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                            lineNumber: 99,
-                            columnNumber: 25
-                        }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$menu$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Menu$3e$__["Menu"], {
-                            size: 20
-                        }, void 0, false, {
-                            fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                            lineNumber: 99,
-                            columnNumber: 43
-                        }, this)
-                    }, void 0, false, {
-                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                        lineNumber: 94,
-                        columnNumber: 9
-                    }, this)
-                ]
-            }, void 0, true, {
-                fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                lineNumber: 38,
-                columnNumber: 7
-            }, this),
-            isMenuOpen && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "absolute top-full left-0 w-full mt-4 bg-[#0f172a]/95 backdrop-blur-2xl border border-[#fafaf0]/10 p-8 md:hidden rounded-3xl animate-in fade-in slide-in-from-top-4",
-                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("nav", {
-                    className: "flex flex-col gap-8 text-center",
-                    children: [
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                            onClick: ()=>scrollTo("about"),
-                            className: "text-xl font-serif italic text-[#fafaf0]",
-                            children: "The Sound"
-                        }, void 0, false, {
-                            fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                            lineNumber: 107,
-                            columnNumber: 13
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                            onClick: ()=>scrollTo("gallery"),
-                            className: "text-xl font-serif italic text-[#fafaf0]",
-                            children: "The Movement"
-                        }, void 0, false, {
-                            fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                            lineNumber: 108,
-                            columnNumber: 13
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                            onClick: ()=>scrollTo("lineup"),
-                            className: "text-xl font-serif italic text-[#fafaf0]",
-                            children: "The Awakening"
-                        }, void 0, false, {
-                            fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                            lineNumber: 109,
-                            columnNumber: 13
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("hr", {
-                            className: "border-[#fafaf0]/10"
-                        }, void 0, false, {
-                            fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                            lineNumber: 110,
-                            columnNumber: 13
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                            onClick: ()=>scrollTo("tickets"),
-                            className: "bg-[#8c6239] py-4 text-sm font-bold uppercase tracking-widest text-[#fafaf0] rounded-full",
-                            children: "Secure Your Place"
-                        }, void 0, false, {
-                            fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                            lineNumber: 111,
-                            columnNumber: 13
-                        }, this)
-                    ]
-                }, void 0, true, {
-                    fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                    lineNumber: 106,
-                    columnNumber: 11
-                }, this)
-            }, void 0, false, {
-                fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-                lineNumber: 105,
-                columnNumber: 9
-            }, this)
-        ]
-    }, void 0, true, {
-        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/ui/header.tsx",
-        lineNumber: 28,
-        columnNumber: 5
-    }, this);
-}
-_s(Header, "wcf3U8/NDcncqNPQTEEGYFGEme8=");
-_c = Header;
-var _c;
-__turbopack_context__.k.register(_c, "Header");
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
     __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
 }
+ // export function Header() {
+ //   const [isMenuOpen, setIsMenuOpen] = useState(false);
+ //   const [isScrolled, setIsScrolled] = useState(false);
+ //   useEffect(() => {
+ //     const handleScroll = () => {
+ //       setIsScrolled(window.scrollY > 50);
+ //     };
+ //     window.addEventListener("scroll", handleScroll, { passive: true });
+ //     return () => window.removeEventListener("scroll", handleScroll);
+ //   }, []);
+ //   // Smooth scroll helper
+ //   const scrollTo = (id) => {
+ //     setIsMenuOpen(false);
+ //     const element = document.getElementById(id);
+ //     element?.scrollIntoView({ behavior: "smooth" });
+ //   };
+ // return (
+ // <header 
+ //   className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl transition-all duration-500 ${
+ //     isScrolled 
+ //       ? "bg-[#0f172a]/40 backdrop-blur-xl border border-[#fafaf0]/10 rounded-full py-1" 
+ //       : "bg-transparent py-4"
+ //   }`}
+ //   style={{
+ //     boxShadow: isScrolled ? "0 20px 40px rgba(0,0,0,0.3)" : "none"
+ //   }}
+ // >
+ //   <div className="flex items-center justify-between px-6">
+ //     {/* Logo Section */}
+ //     <div className="flex items-center gap-3">
+ //       <Link href="/" className="flex flex-col">
+ //         <span className={`text-xl font-bold tracking-[0.2em] transition-colors duration-300 ${isScrolled ? "text-[#fafaf0]" : "text-white"}`}>
+ //           WAKOLOSAI
+ //         </span>
+ //         <span className={`text-[10px] uppercase tracking-widest font-serif italic transition-opacity duration-300 ${isScrolled ? "text-[#8c6239] opacity-100" : "opacity-0"}`}>
+ //           The Awakening
+ //         </span>
+ //       </Link>
+ //     </div>
+ //     {/* Desktop Navigation - Curated for Wakolosai */}
+ //     <nav className="hidden items-center gap-8 md:flex">
+ //       {[
+ //         { name: "The Sound", id: "about" },
+ //         { name: "The Movement", id: "gallery" },
+ //         { name: "The Awakening", id: "lineup" }
+ //       ].map((item) => (
+ //         <button
+ //           key={item.name}
+ //           onClick={() => scrollTo(item.id)}
+ //           className={`text-xs uppercase tracking-widest transition-all hover:tracking-[0.3em] ${
+ //             isScrolled ? "text-[#fafaf0]/70 hover:text-[#8c6239]" : "text-white/80 hover:text-white"
+ //           }`}
+ //         >
+ //           {item.name}
+ //         </button>
+ //       ))}
+ //     </nav>
+ //     {/* CTA Section */}
+ //     <div className="hidden items-center gap-4 md:flex">
+ //         <div className="flex items-center gap-2 mr-2">
+ //             <span className="relative flex h-2 w-2">
+ //                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8c6239] opacity-75"></span>
+ //                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#8c6239]"></span>
+ //             </span>
+ //             <span className={`text-[10px] uppercase tracking-tighter ${isScrolled ? "text-[#fafaf0]/50" : "text-white/50"}`}>Live Now</span>
+ //         </div>
+ //       <button
+ //         onClick={() => scrollTo("tickets")}
+ //         className={`px-6 py-2.5 text-[11px] uppercase tracking-widest font-bold transition-all rounded-full ${
+ //           isScrolled 
+ //             ? "bg-[#8c6239] text-[#fafaf0] hover:bg-[#a67c52] shadow-lg shadow-[#8c6239]/20" 
+ //             : "bg-white text-[#0f172a] hover:bg-[#fafaf0]"
+ //         }`}
+ //       >
+ //         Secure Your Place
+ //       </button>
+ //     </div>
+ //     {/* Mobile Menu Button */}
+ //     <button
+ //       type="button"
+ //       onClick={() => setIsMenuOpen(!isMenuOpen)}
+ //       className={`transition-colors md:hidden ${isScrolled ? "text-[#fafaf0]" : "text-white"}`}
+ //     >
+ //       {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+ //     </button>
+ //   </div>
+ //   {/* Mobile Menu - Themed */}
+ //   {isMenuOpen && (
+ //     <div className="absolute top-full left-0 w-full mt-4 bg-[#0f172a]/95 backdrop-blur-2xl border border-[#fafaf0]/10 p-8 md:hidden rounded-3xl animate-in fade-in slide-in-from-top-4">
+ //       <nav className="flex flex-col gap-8 text-center">
+ //         <button onClick={() => scrollTo("about")} className="text-xl font-serif italic text-[#fafaf0]">The Sound</button>
+ //         <button onClick={() => scrollTo("gallery")} className="text-xl font-serif italic text-[#fafaf0]">The Movement</button>
+ //         <button onClick={() => scrollTo("lineup")} className="text-xl font-serif italic text-[#fafaf0]">The Awakening</button>
+ //         <hr className="border-[#fafaf0]/10" />
+ //         <button
+ //           onClick={() => scrollTo("tickets")}
+ //           className="bg-[#8c6239] py-4 text-sm font-bold uppercase tracking-widest text-[#fafaf0] rounded-full"
+ //         >
+ //           Secure Your Place
+ //         </button>
+ //       </nav>
+ //     </div>
+ //   )}
+ // </header>
+ //   );
+ // }
 }),
 "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx [app-client] (ecmascript)", ((__turbopack_context__) => {
 "use strict";
@@ -284,244 +124,175 @@ __turbopack_context__.s([
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/Desktop/wakolosai-v2/Frontend/node_modules/next/dist/compiled/react/jsx-dev-runtime.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/Desktop/wakolosai-v2/Frontend/node_modules/next/image.js [app-client] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/Desktop/wakolosai-v2/Frontend/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
-;
-var _s = __turbopack_context__.k.signature();
 "use client";
 ;
 ;
-const word = "WAKOLOSAI";
-const sideImages = [
-    {
-        src: "/images/bill-1.png",
-        alt: "Wakolosai 1",
-        position: "left"
-    },
-    {
-        src: "/images/bill-2.png",
-        alt: "Wakolosai 2",
-        position: "left"
-    },
-    {
-        src: "/images/bill-3.png",
-        alt: "Wakolosai 3",
-        position: "right"
-    },
-    {
-        src: "/images/bill-4.png",
-        alt: "Wakolosai 4",
-        position: "right"
-    }
-];
-function HeroSection() {
-    _s();
-    const sectionRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(null);
-    const [scrollProgress, setScrollProgress] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(0);
-    (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
-        "HeroSection.useEffect": ()=>{
-            const handleScroll = {
-                "HeroSection.useEffect.handleScroll": ()=>{
-                    if (!sectionRef.current) return;
-                    const rect = sectionRef.current.getBoundingClientRect();
-                    const windowHeight = window.innerHeight;
-                    // We calculate based on the 300vh height
-                    const totalScrollable = rect.height - windowHeight;
-                    const progress = Math.max(0, Math.min(1, -rect.top / totalScrollable));
-                    setScrollProgress(progress);
-                }
-            }["HeroSection.useEffect.handleScroll"];
-            window.addEventListener("scroll", handleScroll, {
-                passive: true
+function HeroSection({ onBuyTicketClick, onBuyMerchClick }) {
+    const handleTicketClick = ()=>{
+        if (onBuyTicketClick) {
+            onBuyTicketClick();
+        } else {
+            const ticketSection = document.getElementById("tickets-section");
+            ticketSection?.scrollIntoView({
+                behavior: "smooth"
             });
-            return ({
-                "HeroSection.useEffect": ()=>window.removeEventListener("scroll", handleScroll)
-            })["HeroSection.useEffect"];
         }
-    }["HeroSection.useEffect"], []);
-    // Text fades fast
-    const textOpacity = Math.max(0, 1 - scrollProgress * 5);
-    // Images expand smoothly
-    const imageProgress = Math.max(0, Math.min(1, (scrollProgress - 0.1) / 0.7));
+    };
+    const handleMerchClick = ()=>{
+        if (onBuyMerchClick) {
+            onBuyMerchClick();
+        } else {
+            const merchSection = document.getElementById("merch-section");
+            merchSection?.scrollIntoView({
+                behavior: "smooth"
+            });
+        }
+    };
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
-        ref: sectionRef,
-        className: "relative h-[300vh] bg-background",
+        className: "relative h-screen w-full overflow-hidden bg-black text-white font-sans select-none",
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "sticky top-0 z-10 h-screen w-full overflow-hidden bg-background flex items-center justify-center",
-                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                    className: "relative flex h-full w-full items-center justify-center gap-4 transition-all duration-300",
-                    style: {
-                        padding: `${imageProgress * 20}px`
-                    },
-                    children: [
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "flex flex-col h-full gap-4 will-change-transform",
-                            style: {
-                                width: `${imageProgress * 30}%`,
-                                opacity: imageProgress,
-                                transform: `translateX(${(1 - imageProgress) * -200}px)`
-                            },
-                            children: sideImages.filter((i)=>i.position === "left").map((img, i)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    className: "relative flex-1 overflow-hidden rounded-[2.5rem]",
-                                    children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                                        src: img.src,
-                                        alt: img.alt,
-                                        fill: true,
-                                        className: "object-cover"
-                                    }, void 0, false, {
-                                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                                        lineNumber: 59,
-                                        columnNumber: 17
-                                    }, this)
-                                }, i, false, {
-                                    fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                                    lineNumber: 58,
-                                    columnNumber: 15
-                                }, this))
+                className: "absolute inset-0 z-0",
+                children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                        src: "/images/bill-5.png",
+                        alt: "Wakolosai Live Experience",
+                        fill: true,
+                        className: "object-cover object-center grayscale contrast-125",
+                        priority: true,
+                        quality: 100
+                    }, void 0, false, {
+                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
+                        lineNumber: 34,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "absolute inset-0 bg-black/40"
+                    }, void 0, false, {
+                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
+                        lineNumber: 43,
+                        columnNumber: 9
+                    }, this)
+                ]
+            }, void 0, true, {
+                fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
+                lineNumber: 33,
+                columnNumber: 7
+            }, this),
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "absolute top-6 right-6 md:top-10 md:right-12 z-20",
+                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                    className: "text-[11px] md:text-xs font-black tracking-[0.25em] uppercase text-white",
+                    children: "JOIN THE MOVEMENT"
+                }, void 0, false, {
+                    fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
+                    lineNumber: 48,
+                    columnNumber: 9
+                }, this)
+            }, void 0, false, {
+                fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
+                lineNumber: 47,
+                columnNumber: 7
+            }, this),
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "relative z-10 h-full w-full max-w-7xl mx-auto px-6 md:px-12 flex items-center justify-between pointer-events-none",
+                children: [
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "w-1/2 max-w-[280px] sm:max-w-[340px] md:max-w-[420px] pointer-events-auto",
+                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                            src: "/images/Wakolosailogo.png",
+                            alt: "Wakolosai X Logo",
+                            width: 400,
+                            height: 400,
+                            className: "w-full h-auto object-contain drop-shadow-xl",
+                            priority: true
                         }, void 0, false, {
                             fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                            lineNumber: 49,
+                            lineNumber: 58,
                             columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "relative overflow-hidden will-change-transform",
-                            style: {
-                                width: `${100 - imageProgress * 40}%`,
-                                height: `${100 - imageProgress * 15}%`,
-                                borderRadius: `${imageProgress * 48}px`
-                            },
+                        }, this)
+                    }, void 0, false, {
+                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
+                        lineNumber: 57,
+                        columnNumber: 9
+                    }, this),
+                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        className: "w-1/2 text-right pointer-events-auto",
+                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
+                            className: "text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-serif italic leading-[1.1] uppercase tracking-tight leading-tight text-white drop-shadow-md",
                             children: [
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                                    src: "/images/bill-5.png",
-                                    alt: "Wakolosai Main",
-                                    fill: true,
-                                    className: "object-cover",
-                                    priority: true
-                                }, void 0, false, {
+                                "JE, WEWE NI ",
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("br", {}, void 0, false, {
                                     fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                                    lineNumber: 73,
-                                    columnNumber: 13
+                                    lineNumber: 71,
+                                    columnNumber: 25
                                 }, this),
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    className: "absolute inset-0 flex items-center justify-center",
-                                    style: {
-                                        opacity: textOpacity
-                                    },
-                                    children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h1", {
-                                        className: "text-[14vw] font-bold tracking-tighter text-white uppercase italic",
-                                        children: word
-                                    }, void 0, false, {
-                                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                                        lineNumber: 75,
-                                        columnNumber: 15
-                                    }, this)
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                    className: "text-[#FFB800]",
+                                    children: "MKOLOOO?"
                                 }, void 0, false, {
                                     fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                                    lineNumber: 74,
+                                    lineNumber: 72,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                            lineNumber: 65,
-                            columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                            className: "flex flex-col h-full gap-4 will-change-transform",
-                            style: {
-                                width: `${imageProgress * 30}%`,
-                                opacity: imageProgress,
-                                transform: `translateX(${(1 - imageProgress) * 200}px)`
-                            },
-                            children: sideImages.filter((i)=>i.position === "right").map((img, i)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                    className: "relative flex-1 overflow-hidden rounded-[2.5rem]",
-                                    children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$image$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                                        src: img.src,
-                                        alt: img.alt,
-                                        fill: true,
-                                        className: "object-cover"
-                                    }, void 0, false, {
-                                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                                        lineNumber: 90,
-                                        columnNumber: 17
-                                    }, this)
-                                }, i, false, {
-                                    fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                                    lineNumber: 89,
-                                    columnNumber: 15
-                                }, this))
-                        }, void 0, false, {
-                            fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                            lineNumber: 80,
+                            lineNumber: 70,
                             columnNumber: 11
                         }, this)
-                    ]
-                }, void 0, true, {
-                    fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                    lineNumber: 44,
-                    columnNumber: 9
-                }, this)
-            }, void 0, false, {
+                    }, void 0, false, {
+                        fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
+                        lineNumber: 69,
+                        columnNumber: 9
+                    }, this)
+                ]
+            }, void 0, true, {
                 fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                lineNumber: 43,
+                lineNumber: 54,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "relative z-0 h-screen w-full flex items-center justify-center bg-background px-6",
+                className: "absolute bottom-8 left-0 right-0 z-20 px-6 md:px-12 max-w-7xl mx-auto",
                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                    className: "mx-auto max-w-5xl text-center",
+                    className: "flex items-center justify-between w-full",
                     children: [
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
-                            className: "mb-8 text-sm font-bold uppercase tracking-[0.4em] text-primary/40",
-                            children: "The Wakolosai Standard"
+                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                            onClick: handleTicketClick,
+                            className: "bg-[#FFB800] rounded-md rounded-lg hover:bg-[#e0a200] text-black font-extrabold text-sm md:text-base uppercase tracking-wider px-8 md:px-12 py-3 md:py-3.5 transition-colors duration-200",
+                            children: "Buy Ticket"
                         }, void 0, false, {
                             fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                            lineNumber: 101,
+                            lineNumber: 83,
                             columnNumber: 11
                         }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                            className: "text-5xl leading-[1.05] font-medium text-foreground md:text-8xl tracking-tight",
-                            children: [
-                                "Crafted for the ",
-                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("br", {}, void 0, false, {
-                                    fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                                    lineNumber: 105,
-                                    columnNumber: 29
-                                }, this),
-                                " modern wanderer."
-                            ]
-                        }, void 0, true, {
-                            fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                            lineNumber: 104,
-                            columnNumber: 11
-                        }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
-                            className: "mt-10 text-2xl text-muted-foreground italic",
-                            children: "Uncompromising durability for every journey."
+                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Desktop$2f$wakolosai$2d$v2$2f$Frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                            onClick: handleMerchClick,
+                            className: "bg-[#FFB800] hover:bg-[#e0a200] text-black font-extrabold text-sm md:text-base uppercase tracking-wider px-8 md:px-12 py-3 md:py-3.5 rounded-md md:rounded-lg shadow-md hover:scale-105 active:scale-95 transition-all duration-200",
+                            children: "Buy merch"
                         }, void 0, false, {
                             fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                            lineNumber: 107,
+                            lineNumber: 91,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                    lineNumber: 100,
+                    lineNumber: 80,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-                lineNumber: 99,
+                lineNumber: 79,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/Desktop/wakolosai-v2/Frontend/components/sections/hero-section.tsx",
-        lineNumber: 40,
+        lineNumber: 30,
         columnNumber: 5
     }, this);
 }
-_s(HeroSection, "jXPum7fLUqvn1RFomwaiddfXPkc=");
 _c = HeroSection;
 var _c;
 __turbopack_context__.k.register(_c, "HeroSection");

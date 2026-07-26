@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: 'WAKOLOSAI | Go Further',
-  description: 'Wlcome to the Presence of the All Mighty.',
+  description: 'Welcome to the Presence of the All Mighty.',
   generator: 'app',
   icons: {
     icon: [

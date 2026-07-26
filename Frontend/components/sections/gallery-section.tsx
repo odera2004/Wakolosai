@@ -9,7 +9,6 @@ export function GallerySection() {
   const [sectionHeight, setSectionHeight] = useState("100vh");
   const [translateX, setTranslateX] = useState(0);
   const rafRef = useRef<number | null>(null);
-  const lastScrollRef = useRef(0);
 
   const images = [
     { src: "/images/rs-9.jpg", alt: "Thermal bottle on bike" },
@@ -91,7 +90,7 @@ export function GallerySection() {
     <section 
       id="gallery"
       ref={galleryRef}
-      className="relative bg-background"
+      className="relative bg-black text-white border-t border-white/10"
       style={{ height: sectionHeight }}
     >
       {/* Sticky container */}
@@ -114,7 +113,7 @@ export function GallerySection() {
             {images.map((image, index) => (
               <div
                 key={index}
-                className="relative h-[70vh] w-[85vw] flex-shrink-0 overflow-hidden rounded-2xl md:w-[60vw] lg:w-[45vw]"
+                className="relative h-[70vh] w-[85vw] flex-shrink-0 overflow-hidden rounded-2xl md:w-[60vw] lg:w-[45vw] bg-neutral-900 border border-white/10"
                 style={{
                   transform: 'translateZ(0)',
                   WebkitTransform: 'translateZ(0)',
