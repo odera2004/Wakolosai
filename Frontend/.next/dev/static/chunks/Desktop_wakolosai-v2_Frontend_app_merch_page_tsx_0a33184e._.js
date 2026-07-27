@@ -174,7 +174,7 @@ function MerchShopPage() {
         setIsPaying(true);
         try {
             // Connect to your Node.js Express backend on port 5000
-            const response = await fetch("http://localhost:5000/api/buy-merch", {
+            const response = await fetch("https://wakolosai.onrender.com/api/buy-merch", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
