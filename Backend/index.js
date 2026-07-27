@@ -10,7 +10,26 @@ const IntaSend = require("intasend-node");
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+
+// --- CORS CONFIGURATION ---
+const allowedOrigins = [
+  "https://wakolosai.vercel.app",
+  process.env.FRONTEND_URL,
+  "http://localhost:3000",
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  })
+);
+
+// --- BASE BACKEND URL RESOLUTION ---
+const BACKEND_URL =
+  process.env.BACKEND_URL ||
+  process.env.NGROK_URL ||
+  "https://wakolosai.onrender.com";
 
 // --- SUPABASE CLIENT ---
 const supabase = createClient(
@@ -141,7 +160,9 @@ app.post("/api/buy-ticket", generateMpesaToken, async (req, res) => {
   try {
     const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
     const password = Buffer.from("174379" + process.env.DARAJA_PASSKEY + timestamp).toString("base64");
-    const callbackUrl = `${process.env.NGROK_URL.replace(/\/$/, "")}/api/callback`;
+    
+    // UPDATED: Dynamic Live Callback URL
+    const callbackUrl = `${BACKEND_URL.replace(/\/$/, "")}/api/callback`;
 
     console.log(`📡 Initiating Ticket STK Push for ${phone}. Callback URL: ${callbackUrl}`);
 
@@ -204,7 +225,9 @@ app.post("/api/buy-merch", generateMpesaToken, async (req, res) => {
   try {
     const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
     const password = Buffer.from("174379" + process.env.DARAJA_PASSKEY + timestamp).toString("base64");
-    const callbackUrl = `${process.env.NGROK_URL.replace(/\/$/, "")}/api/callback`;
+    
+    // UPDATED: Dynamic Live Callback URL
+    const callbackUrl = `${BACKEND_URL.replace(/\/$/, "")}/api/callback`;
 
     console.log(`📡 Initiating Merch STK Push of KES ${amount} for ${phone}...`);
 
@@ -262,7 +285,7 @@ app.post("/api/intasend/pay-till", async (req, res) => {
       first_name: "Wakolosai",
       last_name: "Supporter",
       email: email,
-      host: process.env.FRONTEND_URL || "https://wakolosai.com",
+      host: process.env.FRONTEND_URL || "https://wakolosai.vercel.app",
       amount: amount,
       phone_number: phone,
       api_ref: `TILL-${till_number || "WAKOLOSAI"}`,

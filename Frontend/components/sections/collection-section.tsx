@@ -50,7 +50,7 @@ export function CollectionSection() {
     setLoading(true);
     try {
       // Toggle URL depending on environment (Local vs Production)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://wakolosai.onrender.com";
       
       const res = await fetch(`${apiUrl}/api/buy-ticket`, {
         method: "POST",
