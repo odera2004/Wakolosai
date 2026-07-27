@@ -3,13 +3,16 @@ const express = require("express");
 const axios = require("axios");
 const { createClient } = require("@supabase/supabase-js");
 const QRCode = require("qrcode");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const cors = require("cors");
 const WebSocket = require("ws");
 const IntaSend = require("intasend-node");
 
 const app = express();
 app.use(express.json());
+
+// --- RESEND EMAIL CLIENT SETUP ---
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // --- CORS CONFIGURATION ---
 const allowedOrigins = [
@@ -68,21 +71,10 @@ async function sendTicketEmail(email, checkoutID, quantity, venue, eventDate) {
         </div>`;
     }
 
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      tls: { rejectUnauthorized: false },
-    });
-
-    console.log(`📡 Sending email via SMTP to ${email}...`);
-    const info = await transporter.sendMail({
-      from: '"Wakolosai Events" <tickets@wakolosai.com>',
-      to: email,
+    console.log(`📡 Sending email via Resend API to ${email}...`);
+    const data = await resend.emails.send({
+      from: "Wakolosai Events <tickets@wakolosai.xyz>",
+      to: [email],
       subject: `Your Passports to Wakolosai Live 🎟️`,
       html: `
         <div style="font-family: 'Times New Roman', serif; max-width: 600px; margin: auto; padding: 40px; background-color: #000000; color: #ffffff; border: 1px solid #333333; border-radius: 20px;">
@@ -118,10 +110,10 @@ async function sendTicketEmail(email, checkoutID, quantity, venue, eventDate) {
         </div>`,
     });
 
-    console.log(`📧 SUCCESS: Email delivered to ${email}. Response ID: ${info.messageId}`);
+    console.log(`📧 SUCCESS: Email delivered to ${email}. Response ID: ${data.id}`);
     return true;
   } catch (err) {
-    console.error("❌ EMAIL SMTP ERROR:", err);
+    console.error("❌ RESEND EMAIL ERROR:", err);
     throw err;
   }
 }
@@ -161,7 +153,6 @@ app.post("/api/buy-ticket", generateMpesaToken, async (req, res) => {
     const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
     const password = Buffer.from("174379" + process.env.DARAJA_PASSKEY + timestamp).toString("base64");
     
-    // UPDATED: Dynamic Live Callback URL
     const callbackUrl = `${BACKEND_URL.replace(/\/$/, "")}/api/callback`;
 
     console.log(`📡 Initiating Ticket STK Push for ${phone}. Callback URL: ${callbackUrl}`);
@@ -226,7 +217,6 @@ app.post("/api/buy-merch", generateMpesaToken, async (req, res) => {
     const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
     const password = Buffer.from("174379" + process.env.DARAJA_PASSKEY + timestamp).toString("base64");
     
-    // UPDATED: Dynamic Live Callback URL
     const callbackUrl = `${BACKEND_URL.replace(/\/$/, "")}/api/callback`;
 
     console.log(`📡 Initiating Merch STK Push of KES ${amount} for ${phone}...`);
@@ -397,7 +387,12 @@ app.post("/api/intasend/webhook", async (req, res) => {
 
 // --- ROUTE 6: DIRECT EMAIL TEST ---
 app.get("/api/test-email", async (req, res) => {
-  const targetEmail = req.query.email || process.env.EMAIL_USER;
+  const targetEmail = req.query.email;
+  
+  if (!targetEmail) {
+    return res.status(400).json({ error: "Please pass an email parameter, e.g., /api/test-email?email=yourname@gmail.com" });
+  }
+
   console.log(`🧪 Testing email dispatch to: ${targetEmail}`);
   try {
     await sendTicketEmail(
