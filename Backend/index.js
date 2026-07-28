@@ -3,7 +3,6 @@ const express = require("express");
 const cors = require("cors");
 const { createClient } = require("@supabase/supabase-js");
 const { Resend } = require("resend");
-const QRCode = require("qrcode");
 const IntaSend = require("intasend-node");
 
 const app = express();
@@ -16,7 +15,7 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
   process.exit(1);
 }
 
-// Initialize Services
+// Initialize SDKs
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -25,6 +24,8 @@ const intasend = new IntaSend(
   process.env.INTASEND_SECRET_KEY,
   process.env.INTASEND_TEST_MODE === "true"
 );
+
+const BASE_URL = process.env.BACKEND_URL || (process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : "https://wakolosai.onrender.com");
 
 // Helper: Format Phone Numbers to 254XXXXXXXXX
 const formatPhoneNumber = (phone) => {
@@ -38,16 +39,7 @@ const formatPhoneNumber = (phone) => {
   return cleaned;
 };
 
-// Helper: Generate QR Code
-const generateQRCode = async (text) => {
-  try {
-    return await QRCode.toDataURL(text);
-  } catch (err) {
-    console.error("❌ QR Code generation failed:", err);
-    throw err;
-  }
-};
-
+// Helper: Send Clean Dark-Mode Ticket Email via Resend API
 // Helper: Send Ticket/Receipt Email via Resend
 const sendTicketEmail = async (email, ticketDetails) => {
   try {
@@ -145,13 +137,41 @@ const sendTicketEmail = async (email, ticketDetails) => {
   }
 };
 
-// 1. Generic Handler for STK Push (Tickets & Merchandise)
-const handlePaymentInitiation = async (req, res) => {
-  const { phone, email, amount, ticketType, fullName, name } = req.body;
-  const customerName = fullName || name || "Customer";
+// GET: Fetch live capacity for ticket tiers
+app.get("/api/ticket-tiers", async (req, res) => {
+  try {
+    const { data: tiers, error } = await supabase.from("ticket_tiers").select("*");
+    if (error) throw error;
+    res.json(tiers);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch tier data" });
+  }
+});
 
-  if (!phone || !amount) {
-    return res.status(400).json({ error: "Missing required fields: phone, amount" });
+// POST: Initiate Payment (Supports Ticket Tiers)
+app.post("/api/buy-ticket", async (req, res) => {
+  const { phone, email, amount, ticketType, name, tierBreakdown } = req.body;
+
+  if (!phone || !email || !amount) {
+    return res.status(400).json({ error: "Missing required fields: phone, email, amount" });
+  }
+
+  // Early Bird Capacity Check if Early Bird is included in purchase
+  if (tierBreakdown && tierBreakdown["early-bird"] > 0) {
+    const { data: ebTier } = await supabase
+      .from("ticket_tiers")
+      .select("*")
+      .eq("id", "early-bird")
+      .single();
+
+    if (ebTier && ebTier.tickets_sold + tierBreakdown["early-bird"] > ebTier.total_capacity) {
+      const remaining = Math.max(0, ebTier.total_capacity - ebTier.tickets_sold);
+      return res.status(400).json({
+        error: remaining === 0 
+          ? "Early Bird tickets are completely SOLD OUT!" 
+          : `Only ${remaining} Early Bird ticket(s) remaining.`
+      });
+    }
   }
 
   const formattedPhone = formatPhoneNumber(phone);
@@ -160,51 +180,44 @@ const handlePaymentInitiation = async (req, res) => {
   try {
     let collection = intasend.collection();
     const apiRef = `WAKOLOSAI-${Date.now()}`;
-    
+
     const response = await collection.mpesaStkPush({
-      first_name: customerName,
+      first_name: name || "Customer",
       last_name: "User",
-      email: email || "customer@wakolosai.app",
+      email: email,
       amount: Number(amount),
       phone_number: formattedPhone,
       api_ref: apiRef,
     });
 
     console.log("📲 IntaSend Response:", JSON.stringify(response, null, 2));
-
     const checkoutID = response.invoice?.invoice_id || response.id || apiRef;
 
     // Save initial record as 'pending' in Supabase DB
-    const { data: ticket, error: dbError } = await supabase
+    const { error: dbError } = await supabase
       .from("tickets")
       .insert([
         {
           checkout_id: checkoutID,
-          email: email || "customer@wakolosai.app",
+          email: email.toLowerCase().trim(),
           phone: formattedPhone,
           amount,
-          ticket_type: ticketType || "Merchandise Order",
+          ticket_type: ticketType || "Event Pass",
           status: "pending",
         },
-      ])
-      .select()
-      .single();
+      ]);
 
     if (dbError) throw dbError;
 
-    console.log(`✅ Saved pending order in DB for checkoutID: ${checkoutID}`);
+    console.log(`✅ Saved pending ticket in DB for checkoutID: ${checkoutID}`);
     res.json({ success: true, checkoutID, message: "STK push sent to your phone" });
   } catch (err) {
     console.error("❌ IntaSend STK Push Error:", err.message || err);
     res.status(500).json({ error: err.message || "Payment initiation failed" });
   }
-};
+});
 
-// Endpoints
-app.post("/api/buy-ticket", handlePaymentInitiation);
-app.post("/api/buy-merch", handlePaymentInitiation);
-
-// 2. IntaSend Webhook / Callback Endpoint
+// POST: Webhook / Callback Handler
 app.post("/api/callback", async (req, res) => {
   console.log("🔔 INCOMING CALLBACK RECEIVED FROM INTASEND!");
   console.log("Payload:", JSON.stringify(req.body, null, 2));
@@ -216,11 +229,11 @@ app.post("/api/callback", async (req, res) => {
       return res.json({ challenge });
     }
 
-    if (state === "COMPLETE" || state === "SUCCESS") {
+    if (state === "COMPLETE" || state === "SUCCESS" || req.body.status === "COMPLETE") {
       const searchRef = invoice_id || api_ref;
-      console.log(`🎉 IntaSend Payment Verified for Ref/Invoice: ${searchRef}`);
+      console.log(`🎉 Payment Verified for Invoice/Ref: ${searchRef}`);
 
-      // Search Supabase using OR condition for checkout_id or api_ref
+      // Search matching row by invoice_id OR api_ref
       const { data: ticket, error: updateError } = await supabase
         .from("tickets")
         .update({ status: "paid" })
@@ -229,11 +242,16 @@ app.post("/api/callback", async (req, res) => {
         .single();
 
       if (updateError || !ticket) {
-        console.error("❌ DB update failed or order not found:", updateError);
+        console.error("❌ DB update failed or record not found:", updateError);
         return res.status(200).json({ status: "ACK", warning: "Record not matched yet" });
       }
 
-      console.log(`🎟️ Match found for email: ${ticket.email}. Dispatching Resend email...`);
+      console.log(`🎟️ Match found for email: ${ticket.email}. Dispatching email...`);
+
+      // Increment Early Bird counter in DB if ticket was Early Bird
+      if (ticket.ticket_type && ticket.ticket_type.includes("Early Bird")) {
+        await supabase.rpc("increment_tier_sales", { tier_id_param: "early-bird", qty_param: 1 });
+      }
 
       // Dispatch Confirmation Email via Resend
       if (ticket.email && ticket.email !== "customer@wakolosai.app") {
@@ -244,9 +262,9 @@ app.post("/api/callback", async (req, res) => {
         });
       }
 
-      console.log(`✨ Order successfully processed for ${ticket.email}`);
+      console.log(`✨ Process successfully completed for ${ticket.email}`);
     } else {
-      console.warn(`⚠️ IntaSend state is '${state}'. Waiting for COMPLETE state...`);
+      console.warn(`⚠️ IntaSend state is '${state}'. Waiting...`);
     }
 
     res.status(200).json({ status: "ACK" });
@@ -259,4 +277,5 @@ app.post("/api/callback", async (req, res) => {
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌐 Base URL set to: ${BASE_URL}`);
 });
