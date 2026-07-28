@@ -51,27 +51,84 @@ const generateQRCode = async (text) => {
 // Helper: Send Ticket/Receipt Email via Resend
 const sendTicketEmail = async (email, ticketDetails) => {
   try {
-    console.log(`⏳ Generating QR Code for ${email}...`);
-    const qrCodeUrl = await generateQRCode(ticketDetails.ticketId);
     const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Events <onboarding@resend.dev>";
+    const isMerch = ticketDetails.ticketType?.toLowerCase().includes("merch");
+    const titleText = isMerch ? "ORDER CONFIRMED" : "TICKET CONFIRMED";
 
-    console.log(`📡 Sending email via Resend API to ${email}...`);
+    console.log(`📡 Sending styled receipt via Resend to ${email}...`);
+    
     const { data, error } = await resend.emails.send({
       from: senderEmail,
       to: [email],
-      subject: `Your Wakolosai Confirmation [${ticketDetails.ticketId}]`,
+      subject: `🎟️ ${titleText}: ${ticketDetails.ticketType || "Wakolosai Order"} [${ticketDetails.ticketId.slice(0, 8)}]`,
       html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-          <h2>🎟️ Payment Confirmed! Thank you for your Wakolosai order.</h2>
-          <p><strong>Order/Ticket ID:</strong> ${ticketDetails.ticketId}</p>
-          <p><strong>Item/Type:</strong> ${ticketDetails.ticketType || "Wakolosai Item"}</p>
-          <p><strong>Amount Paid:</strong> KES ${ticketDetails.amount}</p>
-          <hr />
-          <p>Present or save this QR code for verification:</p>
-          <img src="${qrCodeUrl}" alt="Order QR Code" style="width: 200px; height: 200px;" />
-          <hr />
-          <p style="font-size: 12px; color: #777;">Sent via Wakolosai Platform</p>
-        </div>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { background-color: #000000; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 40px 10px; }
+            .card { max-width: 520px; margin: 0 auto; background-color: #0a0a0a; border: 1px solid #222222; border-radius: 16px; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+            .header { text-align: center; border-bottom: 1px solid #222222; padding-bottom: 24px; margin-bottom: 24px; }
+            .brand { color: #FFB800; font-size: 20px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; margin: 0; }
+            .sub-brand { color: #888888; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-top: 4px; }
+            .badge { display: inline-block; background-color: rgba(255, 184, 0, 0.1); color: #FFB800; border: 1px solid #FFB800; font-size: 12px; font-weight: 600; padding: 6px 16px; rounded-radius: 20px; margin-top: 16px; text-transform: uppercase; letter-spacing: 1px; }
+            .details-box { background-color: #141414; border: 1px solid #262626; border-radius: 12px; padding: 20px; margin: 24px 0; }
+            .row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; }
+            .row:last-child { margin-bottom: 0; }
+            .label { color: #888888; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; }
+            .value { color: #ffffff; font-weight: 600; text-align: right; }
+            .code-box { background-color: #000000; border: 1px dashed #333333; padding: 12px; border-radius: 8px; text-align: center; margin-top: 20px; }
+            .code-text { font-family: monospace; font-size: 13px; color: #FFB800; letter-spacing: 1px; }
+            .footer { text-align: center; color: #555555; font-size: 12px; margin-top: 32px; border-top: 1px solid #1a1a1a; padding-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            
+            <!-- HEADER -->
+            <div class="header">
+              <h1 class="brand">WAKOLOSAI</h1>
+              <p class="sub-brand">Movement & Apparel</p>
+              <div class="badge">Payment Verified</div>
+            </div>
+
+            <!-- MAIN NOTICE -->
+            <p style="font-size: 15px; line-height: 1.5; color: #cccccc; text-align: center;">
+              Thank you for your order! Your payment was processed successfully via M-Pesa.
+            </p>
+
+            <!-- ORDER DETAILS -->
+            <div class="details-box">
+              <div class="row">
+                <span class="label">Item / Description</span>
+                <span class="value">${ticketDetails.ticketType || "Wakolosai Item"}</span>
+              </div>
+              <div class="row">
+                <span class="label">Amount Paid</span>
+                <span class="value" style="color: #FFB800;">KES ${Number(ticketDetails.amount).toLocaleString()}</span>
+              </div>
+              <div class="row">
+                <span class="label">Status</span>
+                <span class="value" style="color: #4ADE80;">CONFIRMED</span>
+              </div>
+            </div>
+
+            <!-- TICKET / ORDER REFERENCE BADGE -->
+            <div class="code-box">
+              <div style="font-size: 10px; color: #777777; text-transform: uppercase; margin-bottom: 4px;">Reference ID</div>
+              <div class="code-text">${ticketDetails.ticketId}</div>
+            </div>
+
+            <!-- FOOTER -->
+            <div class="footer">
+              <p style="margin: 0;">Present this receipt at the entrance or pickup location.</p>
+              <p style="margin: 5px 0 0 0;">&copy; 2026 Wakolosai. All rights reserved.</p>
+            </div>
+
+          </div>
+        </body>
+        </html>
       `,
     });
 
@@ -80,7 +137,7 @@ const sendTicketEmail = async (email, ticketDetails) => {
       throw error;
     }
 
-    console.log(`📧 SUCCESS: Email delivered to ${email}. Response ID: ${data?.id}`);
+    console.log(`📧 SUCCESS: Styled receipt delivered to ${email}. ID: ${data?.id}`);
     return data;
   } catch (err) {
     console.error("❌ Email dispatch failed:", err.message);
