@@ -1,78 +1,142 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FadeImage } from "@/components/ui/fade-image";
 import { Loader2, Ticket, Calendar, MapPin, Clock, ShieldCheck, Sparkles } from "lucide-react";
 
-const ticketTiers = [
+interface TicketTier {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  capacity: number | null;
+  sold: number;
+}
+
+const INITIAL_TIERS: TicketTier[] = [
   {
     id: "early-bird",
     name: "Early Bird Praise",
-    description: "Limited availability for the early seekers of the awakening.",
-    price: 1, // UPDATED FOR TESTING
+    description: "Exclusive discount for the first 20 early movers.",
+    price: 800,
     image: "/images/bill-6.png",
+    capacity: 20,
+    sold: 0,
   },
   {
     id: "regular",
     name: "Regular Gate",
     description: "Full access to the cinematic worship experience.",
-    price: 1, // UPDATED FOR TESTING
+    price: 1000,
     image: "/images/bill-10.png",
+    capacity: null,
+    sold: 0,
+  },
+  {
+    id: "vip",
+    name: "VIP Access",
+    description: "Front-row priority seating, fast-track entry & exclusive merch gift.",
+    price: 3000,
+    image: "/images/rs-13.jpg",
+    capacity: null,
+    sold: 0,
   }
 ];
 
 export function CollectionSection() {
-  const [quantities, setQuantities] = useState<{ [key: string]: number }>({ 
-    "early-bird": 0, 
-    "regular": 0 
+  const [tiers, setTiers] = useState<TicketTier[]>(INITIAL_TIERS);
+  const [quantities, setQuantities] = useState<{ [key: string]: number }>({
+    "early-bird": 0,
+    "regular": 0,
+    "vip": 0,
   });
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://wakolosai.onrender.com";
+
+  // Load real-time inventory from backend on component mount
+  useEffect(() => {
+    fetch(`${apiUrl}/api/ticket-tiers`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setTiers((prev) =>
+            prev.map((t) => {
+              const fetched = data.find((d: any) => d.id === t.id);
+              return fetched ? { ...t, price: Number(fetched.price), sold: fetched.tickets_sold } : t;
+            })
+          );
+        }
+      })
+      .catch((err) => console.log("Note: Could not load live tier count", err));
+  }, [apiUrl]);
+
   const updateQty = (id: string, delta: number) => {
+    const tier = tiers.find((t) => t.id === id);
+    if (!tier) return;
+
+    // Early Bird Sold Out Check
+    if (delta > 0 && tier.capacity !== null && tier.sold >= tier.capacity) {
+      return alert("Early Bird tickets are completely SOLD OUT!");
+    }
+
     const total = Object.values(quantities).reduce((a, b) => a + b, 0);
-    if (delta > 0 && total >= 3) return alert("Maximum 3 tickets per person.");
-    
-    setQuantities(prev => ({
+    if (delta > 0 && total >= 5) return alert("Maximum 5 tickets allowed per transaction.");
+
+    setQuantities((prev) => ({
       ...prev,
-      [id]: Math.max(0, prev[id] + delta)
+      [id]: Math.max(0, (prev[id] || 0) + delta),
     }));
   };
 
-  const totalAmount = (quantities["early-bird"] * 1) + (quantities["regular"] * 1);
+  const totalAmount = tiers.reduce(
+    (sum, tier) => sum + tier.price * (quantities[tier.id] || 0),
+    0
+  );
 
   const handleCheckout = async () => {
     if (!email.trim() || !phone.trim() || totalAmount === 0) {
-      return alert("Please fill in your details and select at least one ticket.");
+      return alert("Please fill in your details and select at least one ticket pass.");
     }
-  
+
     setLoading(true);
+
+    // Build ticket summary string (e.g., "2x Early Bird Praise, 1x VIP Access")
+    const ticketSummary = Object.entries(quantities)
+      .filter(([_, qty]) => qty > 0)
+      .map(([id, qty]) => {
+        const tierName = tiers.find((t) => t.id === id)?.name;
+        return `${qty}x ${tierName}`;
+      })
+      .join(", ");
+
     try {
-      // Toggle URL depending on environment (Local vs Production)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://wakolosai.onrender.com";
-      
       const res = await fetch(`${apiUrl}/api/buy-ticket`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phone: phone.trim(), 
+          phone: phone.trim(),
           email: email.toLowerCase().trim(),
-          amount: totalAmount
-        })
+          amount: totalAmount,
+          ticketType: ticketSummary,
+          tierBreakdown: quantities,
+        }),
       });
-  
+
       const data = await res.json();
-      
+
       if (res.ok) {
-        alert("✅ STK Push sent! Enter your M-Pesa PIN on your phone to complete the awakening.");
-        setQuantities({ "early-bird": 0, "regular": 0 });
+        alert("✅ M-Pesa STK Push Sent! Check your phone screen and enter your PIN to finalize ticket issuance.");
+        setQuantities({ "early-bird": 0, regular: 0, vip: 0 });
       } else {
-        alert(`❌ ${data.error || "Something went wrong."}`);
+        alert(`❌ ${data.error || "STK Push failed."}`);
       }
     } catch (err) {
       console.error("Connection Error:", err);
-      alert("❌ Connection failed. Ensure your backend server is online.");
+      alert("❌ Connection failed. Ensure your server is online.");
     } finally {
       setLoading(false);
     }
@@ -82,7 +146,7 @@ export function CollectionSection() {
     <section id="tickets-section" className="bg-black font-serif italic text-white py-24 border-t border-white/10 select-none">
       <div className="max-w-7xl mx-auto px-6 md:px-12 lg:px-16">
         
-        {/* SECTION HEADER */}
+        {/* HEADER */}
         <div className="text-center mb-16">
           <span className="text-[#FFB800] uppercase tracking-[0.3em] font-serif italic text-xs font-black flex items-center justify-center gap-2 mb-3">
             <Sparkles size={14} className="text-[#FFB800]" /> Live Experience Access
@@ -91,26 +155,33 @@ export function CollectionSection() {
             SECURE YOUR <span className="text-[#FFB800]">PLACE</span>
           </h2>
           <p className="mt-3 text-gray-400 text-xs font-serif italic sm:text-sm uppercase tracking-widest font-semibold">
-            Limited capacity for the awakening. Mobile Ticket issued instantly.
+            Limited capacity for the awakening. Mobile Pass issued instantly via Email.
           </p>
         </div>
 
-        {/* MAIN LAYOUT GRID */}
+        {/* GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
           
-          {/* LEFT COLUMN: TICKET TIERS (7 Cols) */}
+          {/* TICKET TIERS SELECTION */}
           <div className="lg:col-span-7 space-y-6">
             <h3 className="text-sm font-serif italic font-black uppercase tracking-widest text-gray-400 mb-2">
               1. Select Pass Tier
             </h3>
 
-            {ticketTiers.map((tier) => {
-              const count = quantities[tier.id];
+            {tiers.map((tier) => {
+              const count = quantities[tier.id] || 0;
+              const isSoldOut = tier.capacity !== null && tier.sold >= tier.capacity;
+              const remainingSlots = tier.capacity !== null ? Math.max(0, tier.capacity - tier.sold) : null;
+
               return (
-                <div 
-                  key={tier.id} 
+                <div
+                  key={tier.id}
                   className={`group relative flex flex-col sm:flex-row bg-neutral-900/80 rounded-2xl overflow-hidden border transition-all duration-300 ${
-                    count > 0 ? "border-[#FFB800] ring-1 ring-[#FFB800]/50" : "border-white/10 hover:border-white/20"
+                    isSoldOut
+                      ? "border-red-900/40 opacity-60"
+                      : count > 0
+                      ? "border-[#FFB800] ring-1 ring-[#FFB800]/50"
+                      : "border-white/10 hover:border-white/20"
                   }`}
                 >
                   <div className="relative w-full sm:w-2/5 aspect-[4/3] sm:aspect-square">
@@ -120,33 +191,46 @@ export function CollectionSection() {
 
                   <div className="p-6 flex-1 flex flex-col justify-between">
                     <div>
-                      <div className="flex justify-between items-start">
+                      <div className="flex justify-between items-start gap-2">
                         <h3 className="text-xl font-extrabold uppercase tracking-wide text-white">{tier.name}</h3>
-                        <span className="text-xs font-serif italic bg-[#FFB800]/10 text-[#FFB800] font-bold px-2.5 py-1 rounded-full border border-[#FFB800]/20">
-                          Instant E-Pass
-                        </span>
+                        
+                        {isSoldOut ? (
+                          <span className="text-[10px] font-serif italic bg-red-500/20 text-red-400 font-bold px-2.5 py-1 rounded-full border border-red-500/30 uppercase">
+                            Sold Out
+                          </span>
+                        ) : remainingSlots !== null ? (
+                          <span className="text-[10px] font-serif italic bg-[#FFB800]/10 text-[#FFB800] font-bold px-2.5 py-1 rounded-full border border-[#FFB800]/30 uppercase">
+                            {remainingSlots} Left
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-serif italic bg-white/10 text-gray-300 font-bold px-2.5 py-1 rounded-full border border-white/20 uppercase">
+                            Available
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-gray-400 mt-2 leading-relaxed">{tier.description}</p>
                     </div>
 
                     <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/5">
                       <div>
-                        <span className="text-2xl font-black text-[#FFB800]">{tier.price} KES</span>
-                        <span className="text-[10px] font-serif italic text-gray-500 uppercase block">per ticket</span>
+                        <span className="text-2xl font-black text-[#FFB800]">KES {tier.price.toLocaleString()}</span>
+                        <span className="text-[10px] font-serif italic text-gray-500 uppercase block">per pass</span>
                       </div>
 
                       {/* COUNTER BUTTONS */}
                       <div className="flex items-center gap-3 bg-black/60 border border-white/10 rounded-xl px-3 py-1.5">
-                        <button 
-                          onClick={() => updateQty(tier.id, -1)} 
-                          className="text-gray-400 hover:text-white font-black text-lg px-2 transition-colors"
+                        <button
+                          onClick={() => updateQty(tier.id, -1)}
+                          disabled={isSoldOut || count === 0}
+                          className="text-gray-400 hover:text-white disabled:opacity-30 font-black text-lg px-2 transition-colors"
                         >
                           -
                         </button>
                         <span className="text-base font-mono font-bold text-[#FFB800] w-5 text-center">{count}</span>
-                        <button 
-                          onClick={() => updateQty(tier.id, 1)} 
-                          className="text-gray-400 hover:text-white font-black text-lg px-2 transition-colors"
+                        <button
+                          onClick={() => updateQty(tier.id, 1)}
+                          disabled={isSoldOut}
+                          className="text-gray-400 hover:text-white disabled:opacity-30 font-black text-lg px-2 transition-colors"
                         >
                           +
                         </button>
@@ -157,23 +241,23 @@ export function CollectionSection() {
               );
             })}
 
-            {/* EVENT DETAILS ACCORDION / SUMMARY BADGE */}
+            {/* EVENT GUIDELINES */}
             <div className="bg-neutral-900/40 rounded-2xl p-6 border border-white/5 space-y-4">
               <h4 className="text-xs font-serif italic font-black uppercase tracking-widest text-[#FFB800] flex items-center gap-2">
                 <ShieldCheck size={16} /> Important Event Guidelines
               </h4>
               <ul className="text-xs font-serif italic text-gray-400 space-y-2 list-disc list-inside leading-relaxed">
-                <li>Tickets will be sent instantly to your <strong>Email</strong> upon M-Pesa verification.</li>
-                <li>QR code on the E-Pass must be presented at the gate for scanning.</li>
+                <li>E-Pass confirmation will be delivered instantly to your <strong>Email Address</strong> upon M-Pesa approval.</li>
+                <li>Present your digital email receipt with Reference ID at entry for scanner validation.</li>
                 <li>Dress Code: <strong>Minimalist / Urban Black & Gold</strong> recommended.</li>
               </ul>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: CHECKOUT & EVENT METADATA (5 Cols) */}
+          {/* CHECKOUT & EVENT METADATA */}
           <div className="lg:col-span-5 sticky top-28 space-y-6">
             
-            {/* EVENT LOGISTICS CARD */}
+            {/* EVENT SCHEDULE CARD */}
             <div className="bg-gradient-to-br from-neutral-900 to-black p-6 rounded-2xl border border-white/10 shadow-xl">
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
                 <span className="text-[10px] font-black tracking-widest text-gray-400 uppercase">EVENT SCHEDULE</span>
@@ -208,7 +292,7 @@ export function CollectionSection() {
               </div>
             </div>
 
-            {/* CHECKOUT FORM CARD */}
+            {/* FORM CARD */}
             <div className="bg-neutral-900 p-6 md:p-8 rounded-3xl border border-white/10 shadow-2xl">
               <h3 className="text-sm font-serif italic font-black uppercase tracking-widest text-gray-400 mb-6">
                 2. Reservation Details
@@ -219,8 +303,8 @@ export function CollectionSection() {
                   <label className="text-[10px] font-serif italic font-black uppercase tracking-widest text-gray-400 block mb-2">
                     M-Pesa Phone Number
                   </label>
-                  <input 
-                    type="tel" 
+                  <input
+                    type="tel"
                     placeholder="07XX XXX XXX or 2547..."
                     className="w-full bg-black border border-white/15 rounded-xl px-4 py-3.5 text-sm text-white placeholder-gray-600 outline-none focus:border-[#FFB800] transition-colors"
                     value={phone}
@@ -229,11 +313,11 @@ export function CollectionSection() {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-serif italic  font-black uppercase tracking-widest text-gray-400 block mb-2">
-                    Email for Ticket Delivery
+                  <label className="text-[10px] font-serif italic font-black uppercase tracking-widest text-gray-400 block mb-2">
+                    Email for Pass Delivery
                   </label>
-                  <input 
-                    type="email" 
+                  <input
+                    type="email"
                     placeholder="you@example.com"
                     className="w-full bg-black border border-white/15 rounded-xl px-4 py-3.5 text-sm text-white placeholder-gray-600 outline-none focus:border-[#FFB800] transition-colors"
                     value={email}
@@ -247,16 +331,16 @@ export function CollectionSection() {
                       <span className="text-[10px] font-serif italic text-gray-400 uppercase tracking-widest font-bold block">Total Investment</span>
                       <span className="text-xs font-serif italic text-gray-500">Includes all taxes</span>
                     </div>
-                    <span className="text-3xl font-black text-[#FFB800]">{totalAmount.toLocaleString()} KES</span>
+                    <span className="text-3xl font-black text-[#FFB800]">KES {totalAmount.toLocaleString()}</span>
                   </div>
 
-                  <button 
+                  <button
                     onClick={handleCheckout}
                     disabled={loading || totalAmount === 0}
                     className="w-full bg-[#FFB800] hover:bg-[#e0a200] active:scale-[0.98] text-black font-extrabold text-xs md:text-sm uppercase tracking-widest py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 shadow-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#FFB800]"
                   >
                     {loading ? <Loader2 className="animate-spin text-black" size={18} /> : <Ticket size={18} />}
-                    {loading ? "Triggering M-Pesa..." : "Buy Ticket via M-Pesa"}
+                    {loading ? "Triggering M-Pesa..." : "Buy Pass via M-Pesa"}
                   </button>
                 </div>
               </div>
