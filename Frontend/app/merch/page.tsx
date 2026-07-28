@@ -141,6 +141,7 @@ export default function MerchShopPage() {
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   // LIVE REAL M-PESA STK PUSH HANDLER
+// LIVE REAL M-PESA STK PUSH HANDLER
   const handleSTKPush = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -152,7 +153,6 @@ export default function MerchShopPage() {
     setIsPaying(true);
 
     try {
-      // Connect to your Node.js Express backend on port 5000
       const response = await fetch("https://wakolosai.onrender.com/api/buy-merch", {
         method: "POST",
         headers: {
@@ -163,6 +163,7 @@ export default function MerchShopPage() {
           phone: phoneNumber,
           email,
           amount: cartTotal,
+          ticketType: "Wakolosai Merchandise Order",
           cart: cart.map((item) => ({
             id: item.product.id,
             name: item.product.name,
@@ -185,7 +186,7 @@ export default function MerchShopPage() {
       }
     } catch (err) {
       console.error("❌ Live STK Push Error:", err);
-      alert("Could not connect to the Express server. Ensure 'node index.js' is running on port 5000.");
+      alert("Unable to process M-Pesa payment right now. Please check your connection and try again.");
       setIsPaying(false);
     }
   };
