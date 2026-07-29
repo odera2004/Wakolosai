@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { FadeImage } from "@/components/ui/fade-image";
-import { Loader2, Ticket, Calendar, MapPin, Clock, ShieldCheck, Sparkles } from "lucide-react";
+import { Loader2, Ticket, Calendar, MapPin, Clock, ShieldCheck, Sparkles, Heart } from "lucide-react";
 
 interface TicketTier {
   id: string;
@@ -17,27 +17,27 @@ interface TicketTier {
 const INITIAL_TIERS: TicketTier[] = [
   {
     id: "early-bird",
-    name: "Early Bird Praise",
-    description: "Exclusive discount for the first 20 early movers.",
+    name: "Early Bird",
+    description: "Limited early availability for the first 20 worshippers.",
     price: 800,
     image: "/images/bill-6.png",
     capacity: 20,
     sold: 0,
   },
   {
-    id: "regular",
-    name: "Regular Gate",
-    description: "Full access to the cinematic worship experience.",
+    id: "advanced",
+    name: "Advanced Ticket",
+    description: "Standard advance pass for full entry to the worship experience.",
     price: 1000,
     image: "/images/bill-10.png",
     capacity: null,
     sold: 0,
   },
   {
-    id: "vip",
-    name: "VIP Access",
-    description: "Front-row priority seating, fast-track entry & exclusive merch gift.",
-    price: 3000,
+    id: "gate",
+    name: "At The Gate",
+    description: "Gate pass available on the event day at the entrance.",
+    price: 1200,
     image: "/images/rs-13.jpg",
     capacity: null,
     sold: 0,
@@ -48,16 +48,22 @@ export function CollectionSection() {
   const [tiers, setTiers] = useState<TicketTier[]>(INITIAL_TIERS);
   const [quantities, setQuantities] = useState<{ [key: string]: number }>({
     "early-bird": 0,
-    "regular": 0,
-    "vip": 0,
+    "advanced": 0,
+    "gate": 0,
   });
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Support / Donation state
+  const [supportAmount, setSupportAmount] = useState<string>("");
+  const [supportPhone, setSupportPhone] = useState("");
+  const [supportEmail, setSupportEmail] = useState("");
+  const [supportLoading, setSupportLoading] = useState(false);
+
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://wakolosai.onrender.com";
 
-  // Load real-time inventory from backend on component mount
+  // Sync inventory with DB
   useEffect(() => {
     fetch(`${apiUrl}/api/ticket-tiers`)
       .then((res) => res.json())
@@ -78,7 +84,6 @@ export function CollectionSection() {
     const tier = tiers.find((t) => t.id === id);
     if (!tier) return;
 
-    // Early Bird Sold Out Check
     if (delta > 0 && tier.capacity !== null && tier.sold >= tier.capacity) {
       return alert("Early Bird tickets are completely SOLD OUT!");
     }
@@ -97,14 +102,14 @@ export function CollectionSection() {
     0
   );
 
+  // Ticket Checkout Handler
   const handleCheckout = async () => {
     if (!email.trim() || !phone.trim() || totalAmount === 0) {
-      return alert("Please fill in your details and select at least one ticket pass.");
+      return alert("Please fill in your details and select at least one ticket.");
     }
 
     setLoading(true);
 
-    // Build ticket summary string (e.g., "2x Early Bird Praise, 1x VIP Access")
     const ticketSummary = Object.entries(quantities)
       .filter(([_, qty]) => qty > 0)
       .map(([id, qty]) => {
@@ -123,14 +128,15 @@ export function CollectionSection() {
           amount: totalAmount,
           ticketType: ticketSummary,
           tierBreakdown: quantities,
+          isSupport: false,
         }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        alert("✅ M-Pesa STK Push Sent! Check your phone screen and enter your PIN to finalize ticket issuance.");
-        setQuantities({ "early-bird": 0, regular: 0, vip: 0 });
+        alert("✅ M-Pesa STK Push Sent! Enter your PIN on your phone to complete your ticket purchase.");
+        setQuantities({ "early-bird": 0, advanced: 0, gate: 0 });
       } else {
         alert(`❌ ${data.error || "STK Push failed."}`);
       }
@@ -142,6 +148,44 @@ export function CollectionSection() {
     }
   };
 
+  // Support / Offering Handler
+  const handleSupportCheckout = async () => {
+    const amt = Number(supportAmount);
+    if (!supportEmail.trim() || !supportPhone.trim() || !amt || amt <= 0) {
+      return alert("Please enter a valid amount, phone number, and email to send support.");
+    }
+
+    setSupportLoading(true);
+
+    try {
+      const res = await fetch(`${apiUrl}/api/buy-ticket`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: supportPhone.trim(),
+          email: supportEmail.toLowerCase().trim(),
+          amount: amt,
+          ticketType: `Support Offering (KES ${amt})`,
+          isSupport: true,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        alert("✅ STK Push Sent for Support Contribution! Enter your M-Pesa PIN to complete.");
+        setSupportAmount("");
+      } else {
+        alert(`❌ ${data.error || "Failed to trigger STK Push."}`);
+      }
+    } catch (err) {
+      console.error("Support Checkout Error:", err);
+      alert("❌ Connection failed. Please try again.");
+    } finally {
+      setSupportLoading(false);
+    }
+  };
+
   return (
     <section id="tickets-section" className="bg-black font-serif italic text-white py-24 border-t border-white/10 select-none">
       <div className="max-w-7xl mx-auto px-6 md:px-12 lg:px-16">
@@ -149,20 +193,20 @@ export function CollectionSection() {
         {/* HEADER */}
         <div className="text-center mb-16">
           <span className="text-[#FFB800] uppercase tracking-[0.3em] font-serif italic text-xs font-black flex items-center justify-center gap-2 mb-3">
-            <Sparkles size={14} className="text-[#FFB800]" /> Live Experience Access
+            <Sparkles size={14} className="text-[#FFB800]" /> Live Worship Experience
           </span>
           <h2 className="text-4xl sm:text-5xl md:text-6xl font-serif italic font-black uppercase tracking-tight text-white">
-            SECURE YOUR <span className="text-[#FFB800]">PLACE</span>
+            SECURE YOUR <span className="text-[#FFB800]">PASS</span>
           </h2>
           <p className="mt-3 text-gray-400 text-xs font-serif italic sm:text-sm uppercase tracking-widest font-semibold">
-            Limited capacity for the awakening. Mobile Pass issued instantly via Email.
+            Instant E-Pass delivered to your email upon M-Pesa verification.
           </p>
         </div>
 
-        {/* GRID */}
+        {/* MAIN LAYOUT */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
           
-          {/* TICKET TIERS SELECTION */}
+          {/* TICKET TIERS & GUIDELINES (7 COLS) */}
           <div className="lg:col-span-7 space-y-6">
             <h3 className="text-sm font-serif italic font-black uppercase tracking-widest text-gray-400 mb-2">
               1. Select Pass Tier
@@ -248,19 +292,97 @@ export function CollectionSection() {
               </h4>
               <ul className="text-xs font-serif italic text-gray-400 space-y-2 list-disc list-inside leading-relaxed">
                 <li>E-Pass confirmation will be delivered instantly to your <strong>Email Address</strong> upon M-Pesa approval.</li>
-                <li>Present your digital email receipt with Reference ID at entry for scanner validation.</li>
+                <li>Present your digital email receipt with Reference ID at entry for verification.</li>
                 <li>Dress Code: <strong>Minimalist / Urban Black & Gold</strong> recommended.</li>
               </ul>
             </div>
+
+            {/* SUPPORT / LOVE OFFERING SECTION */}
+            <div className="bg-gradient-to-br from-neutral-900 via-neutral-950 to-black p-6 md:p-8 rounded-3xl border border-[#FFB800]/30 shadow-2xl relative overflow-hidden">
+              <div className="flex items-center gap-2 mb-2 text-[#FFB800]">
+                <Heart size={18} className="fill-[#FFB800]" />
+                <h3 className="text-sm font-serif italic font-black uppercase tracking-widest">
+                  Support The Event
+                </h3>
+              </div>
+              <p className="text-xs text-gray-400 font-serif italic mb-6 leading-relaxed">
+                Want to partner with us or send a love offering? You can support the awakening with any amount via M-Pesa.
+              </p>
+
+              <div className="space-y-4">
+                {/* PRESET AMOUNT BUTTONS */}
+                <div className="flex flex-wrap gap-2">
+                  {[200, 500, 1000, 2500, 5000].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setSupportAmount(preset.toString())}
+                      className={`text-xs font-bold font-mono px-3.5 py-2 rounded-lg border transition-all ${
+                        supportAmount === preset.toString()
+                          ? "bg-[#FFB800] text-black border-[#FFB800]"
+                          : "bg-black/60 text-gray-300 border-white/10 hover:border-white/30"
+                      }`}
+                    >
+                      + KES {preset}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Amount (KES)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 500"
+                      className="w-full bg-black border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-600 outline-none focus:border-[#FFB800]"
+                      value={supportAmount}
+                      onChange={(e) => setSupportAmount(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">M-Pesa Phone</label>
+                    <input
+                      type="tel"
+                      placeholder="07XX XXX XXX"
+                      className="w-full bg-black border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-600 outline-none focus:border-[#FFB800]"
+                      value={supportPhone}
+                      onChange={(e) => setSupportPhone(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Your Email</label>
+                    <input
+                      type="email"
+                      placeholder="you@example.com"
+                      className="w-full bg-black border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-600 outline-none focus:border-[#FFB800]"
+                      value={supportEmail}
+                      onChange={(e) => setSupportEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSupportCheckout}
+                  disabled={supportLoading || !supportAmount || Number(supportAmount) <= 0}
+                  className="w-full bg-gradient-to-r from-[#FFB800] to-[#e0a200] hover:opacity-90 active:scale-[0.98] text-black font-extrabold text-xs uppercase tracking-widest py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  {supportLoading ? <Loader2 className="animate-spin text-black" size={16} /> : <Heart size={16} className="fill-black" />}
+                  {supportLoading ? "Sending STK Push..." : `Send Support (KES ${Number(supportAmount || 0).toLocaleString()})`}
+                </button>
+              </div>
+            </div>
+
           </div>
 
-          {/* CHECKOUT & EVENT METADATA */}
+          {/* CHECKOUT FORM & EVENT DETAILS (5 COLS) */}
           <div className="lg:col-span-5 sticky top-28 space-y-6">
             
             {/* EVENT SCHEDULE CARD */}
             <div className="bg-gradient-to-br from-neutral-900 to-black p-6 rounded-2xl border border-white/10 shadow-xl">
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
-                <span className="text-[10px] font-black tracking-widest text-gray-400 uppercase">EVENT SCHEDULE</span>
+                <span className="text-[10px] font-black tracking-widest text-gray-400 uppercase">EVENT DETAILS</span>
                 <span className="text-[10px] font-bold text-[#FFB800] bg-[#FFB800]/10 px-2 py-0.5 rounded-md">LIVE CONCERT</span>
               </div>
 
@@ -284,15 +406,15 @@ export function CollectionSection() {
                 <div className="flex items-start gap-3">
                   <MapPin className="text-[#FFB800] shrink-0 mt-0.5" size={16} />
                   <div>
-                    <span className="text-gray-400 block text-[10px] uppercase font-serif italic font-bold">Location & Venue</span>
-                    <span className="font-bold text-white font-serif italic text-sm">The Dome Arena, Carnivore Grounds</span>
+                    <span className="text-gray-400 block text-[10px] uppercase font-serif italic font-bold">Venue & Location</span>
+                    <span className="font-bold text-white font-serif italic text-sm">ICC Nairobi Frontrunners</span>
                     <span className="text-gray-500 font-serif italic block text-[11px]">Nairobi, Kenya</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* FORM CARD */}
+            {/* CHECKOUT CARD */}
             <div className="bg-neutral-900 p-6 md:p-8 rounded-3xl border border-white/10 shadow-2xl">
               <h3 className="text-sm font-serif italic font-black uppercase tracking-widest text-gray-400 mb-6">
                 2. Reservation Details
@@ -328,7 +450,7 @@ export function CollectionSection() {
                 <div className="pt-5 border-t border-white/10">
                   <div className="flex justify-between items-end mb-6">
                     <div>
-                      <span className="text-[10px] font-serif italic text-gray-400 uppercase tracking-widest font-bold block">Total Investment</span>
+                      <span className="text-[10px] font-serif italic text-gray-400 uppercase tracking-widest font-bold block">Total Amount</span>
                       <span className="text-xs font-serif italic text-gray-500">Includes all taxes</span>
                     </div>
                     <span className="text-3xl font-black text-[#FFB800]">KES {totalAmount.toLocaleString()}</span>
