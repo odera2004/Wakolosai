@@ -45,12 +45,12 @@ export function FeaturedProductsSection() {
       {/* Features Grid */}
       <div className="grid grid-cols-1 gap-8 px-6 pb-20 md:grid-cols-3 md:px-12 lg:px-20 max-w-7xl mx-auto">
         {artistry.map((item) => (
-          <div key={item.title} className="group cursor-pointer">
+          <div className="group cursor-pointer">
             {/* Image Container */}
             <div className="relative aspect-[4/5] overflow-hidden rounded-3xl bg-neutral-900 border border-white/10">
               <FadeImage
                 src={item.image || "/placeholder.svg"}
-                alt={item.title}
+                alt=""
                 fill
                 className="object-cover transition-transform duration-700 group-hover:scale-105"
               />
