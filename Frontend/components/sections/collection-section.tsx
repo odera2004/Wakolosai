@@ -196,7 +196,7 @@ export function CollectionSection() {
             <Sparkles size={14} className="text-[#FFB800]" /> Live Worship Experience
           </span>
           <h2 className="text-4xl sm:text-5xl md:text-6xl font-serif italic font-black uppercase tracking-tight text-white">
-            SECURE YOUR <span className="text-[#FFB800]">PASS</span>
+            SECURE YOUR <span className="text-[#FFB800]">TICKET</span>
           </h2>
           <p className="mt-3 text-gray-400 text-xs font-serif italic sm:text-sm uppercase tracking-widest font-semibold">
             Instant E-Pass delivered to your email upon M-Pesa verification.
