@@ -293,7 +293,6 @@ export function CollectionSection() {
               <ul className="text-xs font-serif italic text-gray-400 space-y-2 list-disc list-inside leading-relaxed">
                 <li>E-Pass confirmation will be delivered instantly to your <strong>Email Address</strong> upon M-Pesa approval.</li>
                 <li>Present your digital email receipt with Reference ID at entry for verification.</li>
-                <li>Dress Code: <strong>Minimalist / Urban Black & Gold</strong> recommended.</li>
               </ul>
             </div>
 
@@ -391,7 +390,7 @@ export function CollectionSection() {
                   <Calendar className="text-[#FFB800] shrink-0 mt-0.5" size={16} />
                   <div>
                     <span className="text-gray-400 block text-[10px] uppercase font-serif italic font-bold">Date</span>
-                    <span className="font-bold text-white font-serif italic text-sm">Saturday, November 28, 2026</span>
+                    <span className="font-bold text-white font-serif italic text-sm">Sunday, September 13, 2026</span>
                   </div>
                 </div>
 
@@ -399,7 +398,7 @@ export function CollectionSection() {
                   <Clock className="text-[#FFB800] shrink-0 mt-0.5" size={16} />
                   <div>
                     <span className="text-gray-400 block text-[10px] uppercase font-serif italic font-bold">Doors Open</span>
-                    <span className="font-bold text-white font-serif italic text-sm">4:00 PM EAT till Late</span>
+                    <span className="font-bold text-white font-serif italic text-sm">3:00 PM EAT till Late</span>
                   </div>
                 </div>
 
