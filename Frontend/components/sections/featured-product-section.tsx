@@ -4,33 +4,27 @@ import { FadeImage } from "@/components/ui/fade-image";
 
 const artistry = [
   {
-    title: "Old-School Kenyan Praise",
-    description: "The Roots",
     image: "/images/rs-3.jpg",
   },
+
   {
-    title: "Cinematic Worship Experience",
-    description: "The Atmosphere",
+
     image: "/images/rs-4.jpg",
   },
   {
-    title: "A Stirring of the Spirit",
-    description: "The Impact",
+   
     image: "/images/rs-5.jpg",
   },
   {
-    title: "Harmonies of Joy & Hope",
-    description: "The Sound",
+  
     image: "/images/rs-6.jpg",
   },
   {
-    title: "Cultural Heritage Reclaimed",
-    description: "The Legacy",
+    
     image: "/images/rs-7.jpg",
   },
   {
-    title: "Unity in Divine Presence",
-    description: "The Community",
+   
     image: "/images/rs-8.jpg",
   },
 ];
@@ -41,9 +35,7 @@ export function FeaturedProductsSection() {
       {/* Section Title */}
       <div className="px-6 py-20 text-center md:px-12 md:py-28 lg:px-20 lg:py-32 lg:pb-20">
         <h2 className="text-4xl font-serif italic tracking-tight text-white md:text-5xl lg:text-6xl">
-          The Lord is Great.
-          <br />
-          <span className="text-[#FFB800]">And Greatly to be Praised.</span>
+          <span className="text-[#FFB800]">Colossians 1 :15-20</span>
         </h2>
         <p className="mx-auto mt-6 max-w-md text-[10px] uppercase tracking-[0.3em] font-black text-[#FFB800]">
           The Artistry of Wakolosai
@@ -68,12 +60,7 @@ export function FeaturedProductsSection() {
 
             {/* Content */}
             <div className="py-8">
-              <p className="mb-2 text-[10px] uppercase tracking-[0.2em] font-black text-[#FFB800]">
-                {item.description}
-              </p>
-              <h3 className="text-white text-2xl font-serif italic leading-tight group-hover:text-[#FFB800] transition-colors duration-300">
-                {item.title}
-              </h3>
+             
               {/* Decorative line */}
               <div className="mt-4 h-[1px] w-10 bg-[#FFB800]/40 transition-all duration-500 group-hover:w-full group-hover:bg-[#FFB800]" />
             </div>
@@ -84,7 +71,7 @@ export function FeaturedProductsSection() {
       {/* Quote Footer */}
       <div className="flex justify-center px-6 pb-28 text-center md:px-12 lg:px-20">
         <p className="max-w-2xl font-serif italic text-gray-400 text-lg">
-          "Stirring the spirit and filling the heart with <span className="text-[#FFB800]">joy, peace, and hope</span>."
+          "<span className="text-[#FFB800]">Be part of the wakolo community</span>."
         </p>
       </div>
     </section>
