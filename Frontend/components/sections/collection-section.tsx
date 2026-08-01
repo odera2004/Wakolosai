@@ -18,7 +18,7 @@ const INITIAL_TIERS: TicketTier[] = [
   {
     id: "early-bird",
     name: "Early Bird",
-    description: "Limited early availability for the first 20 worshippers.",
+    description: "Limited early availability.",
     price: 800,
     image: "/images/bill-6.png",
     capacity: 20,
@@ -143,7 +143,7 @@ export function CollectionSection() {
     } catch (err) {
       console.error("Connection Error:", err);
       alert("❌ Connection failed. Ensure your server is online.");
-    } finally {
+    } font-serif italic {
       setLoading(false);
     }
   };
@@ -215,7 +215,6 @@ export function CollectionSection() {
             {tiers.map((tier) => {
               const count = quantities[tier.id] || 0;
               const isSoldOut = tier.capacity !== null && tier.sold >= tier.capacity;
-              const remainingSlots = tier.capacity !== null ? Math.max(0, tier.capacity - tier.sold) : null;
 
               return (
                 <div
@@ -242,9 +241,9 @@ export function CollectionSection() {
                           <span className="text-[10px] font-serif italic bg-red-500/20 text-red-400 font-bold px-2.5 py-1 rounded-full border border-red-500/30 uppercase">
                             Sold Out
                           </span>
-                        ) : remainingSlots !== null ? (
+                        ) : tier.capacity !== null ? (
                           <span className="text-[10px] font-serif italic bg-[#FFB800]/10 text-[#FFB800] font-bold px-2.5 py-1 rounded-full border border-[#FFB800]/30 uppercase">
-                            {remainingSlots} Left
+                            Limited Spots
                           </span>
                         ) : (
                           <span className="text-[10px] font-serif italic bg-white/10 text-gray-300 font-bold px-2.5 py-1 rounded-full border border-white/20 uppercase">
