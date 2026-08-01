@@ -4,15 +4,10 @@ import Link from "next/link";
 import { ArrowUp } from "lucide-react";
 
 const footerLinks = {
-  movement: [
-    { label: "The Sound", href: "#about" },
-    { label: "The Artistry", href: "#lineup" },
-    { label: "The Gallery", href: "#gallery" },
-    { label: "Secure Your Place", href: "#tickets-section" },
-  ],
+  
   connect: [
     { label: "Instagram", href: "https://instagram.com" },
-    { label: "YouTube", href: "https://youtube.com" },
+    { label: "YouTube", href: "https://www.youtube.com/@billwanjala" },
     { label: "Contact", href: "mailto:info@wakolosai.com" },
   ],
 };
@@ -30,26 +25,12 @@ export function FooterSection() {
               WAKOLOSAI
             </Link>
             <p className="mt-6 max-w-sm font-serif italic text-lg leading-relaxed text-gray-400">
-              The Lord is great and greatly to be praised. A stir of joy, peace, and hope for a new generation.
+              Colosians 1 :15-20 
             </p>
           </div>
 
           {/* The Movement Links */}
-          <div>
-            <h4 className="mb-6 text-[10px] font-black uppercase tracking-[0.3em] text-[#FFB800]">The Movement</h4>
-            <ul className="space-y-4">
-              {footerLinks.movement.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-gray-400 transition-all duration-200 hover:text-white hover:pl-1.5 inline-block"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          
 
           {/* Social / Connect */}
           <div>
@@ -77,13 +58,10 @@ export function FooterSection() {
         <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
           {/* Trademark Info */}
           <p className="text-[10px] uppercase tracking-widest text-gray-500 font-medium">
-            © 2026 WAKOLOSAI. All for His Glory.
+            © 2026 WAKOLOSAI.
           </p>
 
           {/* Credit */}
-          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-medium">
-            Special thanks to <span className="text-[#FFB800]">Ruach</span>
-          </p>
 
           {/* Minimalist Top Scroll */}
           <button 
