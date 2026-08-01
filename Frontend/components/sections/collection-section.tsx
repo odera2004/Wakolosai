@@ -143,7 +143,7 @@ export function CollectionSection() {
     } catch (err) {
       console.error("Connection Error:", err);
       alert("❌ Connection failed. Ensure your server is online.");
-    } font-serif italic {
+    } finally {
       setLoading(false);
     }
   };
