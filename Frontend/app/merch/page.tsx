@@ -3,106 +3,103 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingBag, ArrowLeft, X, Trash2, Check, Smartphone, Sparkles } from "lucide-react";
+import { ShoppingBag, ArrowLeft, X, Trash2, Check, Smartphone, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+
+interface ColorOption {
+  colorName: string;
+  hex: string;
+  frontImage: string;
+  backImage: string;
+}
 
 interface Product {
   id: string;
   name: string;
   category: string;
   price: number;
-  originalPrice: number;
-  discount: string;
   badge?: string;
-  image: string;
   description: string;
   sizes: string[];
+  colors?: ColorOption[];
+  singleImage?: string;
 }
 
 interface CartItem {
+  cartId: string;
   product: Product;
+  selectedColor?: string;
   selectedSize: string;
   quantity: number;
 }
 
 const merchProducts: Product[] = [
   {
-    id: "hoodie-heavyweight",
+    id: "wakolosai-hoodie",
     name: "Wakolosai Heavyweight Pullover",
     category: "Hoodies",
     price: 3500,
-    originalPrice: 4500,
-    discount: "-22%",
     badge: "BESTSELLER",
-    image: "/images/rs-13.jpg",
+    singleImage: "/images/rs-13.jpg",
     description: "480 GSM Ultra-Thick Cotton, Drop Shoulder Streetwear Fit",
     sizes: ["M", "L", "XL", "XXL"],
   },
   {
-    id: "hoodie-acidwash",
-    name: "Acid Wash Vintage Hoodie",
-    category: "Hoodies",
-    price: 3800,
-    originalPrice: 4800,
-    discount: "-20%",
-    badge: "LIMITED DROP",
-    image: "/images/rs-14.jpg",
-    description: "Custom Vintage Distressed Finish, Gold Embroidered Logo",
-    sizes: ["S", "M", "L", "XL"],
-  },
-  {
-    id: "tee-oversized-black",
-    name: "Mkolooo Oversized Heavy Tee",
+    id: "wakolosai-tee",
+    name: "Wakolosai Oversized Heavyweight Tee",
     category: "Tees",
-    price: 2200,
-    originalPrice: 2800,
-    discount: "-21%",
-    badge: "NEW",
-    image: "/images/rs-15.jpg",
-    description: "240 GSM Combed Cotton, High Density Front Graphic Print",
-    sizes: ["S", "M", "L", "XL", "XXL"],
-  },
-  {
-    id: "tee-praise-gold",
-    name: "Praise & Glory Boxy Tee",
-    category: "Tees",
-    price: 2000,
-    originalPrice: 2500,
-    discount: "-20%",
-    image: "/images/rs-16.jpg",
-    description: "Minimalist Gold Typography on Washed Charcoal Cotton",
-    sizes: ["M", "L", "XL"],
-  },
-  {
-    id: "cap-embroidered",
-    name: "Wakolosai Signature Cap",
-    category: "Accessories",
-    price: 1500,
-    originalPrice: 1800,
-    discount: "-16%",
-    image: "/images/rs-9.jpg",
-    description: "Structured 6-Panel Strapback with Metallic Gold Stitching",
-    sizes: ["ONE SIZE"],
-  },
-  {
-    id: "tote-bag-heavy",
-    name: "Movement Canvas Tote",
-    category: "Accessories",
     price: 1200,
-    originalPrice: 1500,
-    discount: "-20%",
-    image: "/images/rs-10.jpg",
-    description: "Heavy-duty 16oz Canvas with Internal Zip Pocket",
-    sizes: ["ONE SIZE"],
+    badge: "NEW COLORS",
+    description: "240 GSM Combed Cotton, Front & Back Custom Screen Print",
+    sizes: ["S", "M", "L", "XL", "XXL"],
+    colors: [
+      {
+        colorName: "Beige",
+        hex: "#D4C3A3",
+        frontImage: "/images/Wakolosai Merch Beige - Front.png",
+        backImage: "/images/Wakolosai Merch Beige - Back.png",
+      },
+      {
+        colorName: "Black",
+        hex: "#1A1A1A",
+        frontImage: "/images/Wakolosai Merch Black - Front.png",
+        backImage: "/images/Wakolosai Merch Black - Back.png",
+      },
+      {
+        colorName: "Maroon",
+        hex: "#6B1D2F",
+        frontImage: "/images/Wakolosai Merch Maroon - Front.png",
+        backImage: "/images/Wakolosai Merch Maroon - Back.png",
+      },
+      {
+        colorName: "Pink",
+        hex: "#E8A5C8",
+        frontImage: "/images/Wakolosai Merch Pink - Front.png",
+        backImage: "/images/Wakolosai Merch Pink - Back.png",
+      },
+      {
+        colorName: "Turquoise",
+        hex: "#30A2A2",
+        frontImage: "/images/Wakolosai Merch Turquoise - Front.png",
+        backImage: "/images/Wakolosai Merch Turquoise - Back.png",
+      },
+    ],
   },
 ];
 
 export default function MerchShopPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedSizes, setSelectedSizes] = useState<{ [key: string]: string }>({});
+  const [selectedColors, setSelectedColors] = useState<{ [key: string]: number }>({
+    "wakolosai-tee": 0, // Default to first color (Beige)
+  });
+  const [activeView, setActiveView] = useState<{ [key: string]: "front" | "back" }>({
+    "wakolosai-tee": "front",
+  });
+
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutStep, setIsCheckoutStep] = useState(false);
 
-  // M-Pesa Checkout State
+  // Checkout State
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
@@ -113,18 +110,45 @@ export default function MerchShopPage() {
     setSelectedSizes((prev) => ({ ...prev, [productId]: size }));
   };
 
+  const handleColorSelect = (productId: string, index: number) => {
+    setSelectedColors((prev) => ({ ...prev, [productId]: index }));
+  };
+
+  const toggleView = (productId: string) => {
+    setActiveView((prev) => ({
+      ...prev,
+      [productId]: prev[productId] === "back" ? "front" : "back",
+    }));
+  };
+
   const addToCart = (product: Product) => {
     const size = selectedSizes[product.id] || product.sizes[0];
+    let colorName: string | undefined = undefined;
+
+    if (product.colors && product.colors.length > 0) {
+      const colorIdx = selectedColors[product.id] || 0;
+      colorName = product.colors[colorIdx].colorName;
+    }
+
+    const cartId = `${product.id}-${colorName || "default"}-${size}`;
+
     setCart((prevCart) => {
-      const existingIndex = prevCart.findIndex(
-        (item) => item.product.id === product.id && item.selectedSize === size
-      );
+      const existingIndex = prevCart.findIndex((item) => item.cartId === cartId);
       if (existingIndex > -1) {
         const updated = [...prevCart];
         updated[existingIndex].quantity += 1;
         return updated;
       }
-      return [...prevCart, { product, selectedSize: size, quantity: 1 }];
+      return [
+        ...prevCart,
+        {
+          cartId,
+          product,
+          selectedColor: colorName,
+          selectedSize: size,
+          quantity: 1,
+        },
+      ];
     });
     setIsCartOpen(true);
   };
@@ -137,11 +161,8 @@ export default function MerchShopPage() {
     (sum, item) => sum + item.product.price * item.quantity,
     0
   );
-
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // LIVE REAL M-PESA STK PUSH HANDLER
-// LIVE REAL M-PESA STK PUSH HANDLER
   const handleSTKPush = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -155,19 +176,19 @@ export default function MerchShopPage() {
     try {
       const response = await fetch("https://wakolosai.onrender.com/api/buy-merch", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName,
           phone: phoneNumber,
           email,
           amount: cartTotal,
-          ticketType: "Wakolosai Merchandise Order",
           cart: cart.map((item) => ({
             id: item.product.id,
-            name: item.product.name,
+            name: item.selectedColor
+              ? `${item.product.name} (${item.selectedColor})`
+              : item.product.name,
             size: item.selectedSize,
+            color: item.selectedColor || "N/A",
             quantity: item.quantity,
             price: item.product.price,
           })),
@@ -179,26 +200,23 @@ export default function MerchShopPage() {
       if (response.ok) {
         setIsPaying(false);
         setPaymentSuccess(true);
-        setCart([]); // Clear cart upon successful prompt
+        setCart([]);
       } else {
         alert(data.error || "STK Push failed. Please check your phone number.");
         setIsPaying(false);
       }
     } catch (err) {
       console.error("❌ Live STK Push Error:", err);
-      alert("Unable to process M-Pesa payment right now. Please check your connection and try again.");
+      alert("Could not connect to the backend server.");
       setIsPaying(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-black text-white font-serif italic select-none">
-      
-      {/* 1. STORE HEADER / NAVIGATION */}
+      {/* HEADER */}
       <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10 px-6 py-5 md:px-12">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          
-          {/* Back to main site */}
           <Link
             href="/"
             className="flex items-center gap-2 text-xs text-gray-400 hover:text-[#FFB800] transition-colors"
@@ -207,14 +225,12 @@ export default function MerchShopPage() {
             <span className="font-serif italic uppercase tracking-wider">Back to Movement</span>
           </Link>
 
-          {/* Branding */}
           <div className="text-center">
             <h1 className="text-xl md:text-2xl font-serif italic uppercase tracking-widest text-white">
               WAKOLOSAI <span className="text-[#FFB800]">STORE</span>
             </h1>
           </div>
 
-          {/* Cart Icon Trigger */}
           <button
             onClick={() => setIsCartOpen(true)}
             className="relative flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-full transition-all"
@@ -227,55 +243,69 @@ export default function MerchShopPage() {
               </span>
             )}
           </button>
-
         </div>
       </header>
 
-      {/* 2. STORE HERO BANNER */}
+      {/* HERO BANNER */}
       <section className="px-6 py-16 md:px-12 md:py-20 text-center border-b border-white/10 bg-neutral-950">
         <div className="max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-[#FFB800] mb-4">
             <Sparkles size={14} />
-            <span>Exclusive Drop 2026</span>
+            <span>Official Drop 2026</span>
           </div>
           <h2 className="text-4xl md:text-6xl font-serif italic uppercase leading-tight mb-4">
             Official <span className="text-[#FFB800]">Apparel</span> Vault
           </h2>
           <p className="text-gray-400 text-sm md:text-base max-w-xl mx-auto">
-            Heavyweight fabrics engineered for comfort, praise, and longevity. Designed specifically for the Wakolosai family.
+            Jee wewe ni Mkoloo !
           </p>
         </div>
       </section>
 
-      {/* 3. PRODUCT CATALOG GRID */}
-      <main className="max-w-7xl mx-auto px-6 py-16 md:px-12">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+      {/* PRODUCT GRID */}
+      <main className="max-w-6xl mx-auto px-6 py-16 md:px-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {merchProducts.map((product) => {
             const currentSize = selectedSizes[product.id] || product.sizes[0];
+            const colorIdx = selectedColors[product.id] || 0;
+            const activeColor = product.colors ? product.colors[colorIdx] : null;
+            const isBackView = activeView[product.id] === "back";
+
+            const displayImage = activeColor
+              ? isBackView
+                ? activeColor.backImage
+                : activeColor.frontImage
+              : product.singleImage || "";
 
             return (
               <div
                 key={product.id}
                 className="group flex flex-col bg-neutral-950 border border-white/10 rounded-3xl overflow-hidden hover:border-[#FFB800]/50 transition-all duration-500"
               >
-                {/* Image Box */}
-                <div className="relative aspect-square w-full overflow-hidden bg-neutral-900">
+                {/* Image Display */}
+                <div className="relative aspect-square w-full bg-neutral-900 overflow-hidden">
                   <Image
-                    src={product.image}
+                    src={displayImage}
                     alt={product.name}
                     fill
-                    className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                    className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
                   />
-                  <div className="absolute top-4 left-4 flex flex-col gap-2">
-                    <span className="bg-[#FFB800] text-black text-[10px] font-serif italic uppercase tracking-widest px-3 py-1 rounded-md">
-                      {product.discount}
+                  {product.badge && (
+                    <span className="absolute top-4 left-4 bg-[#FFB800] text-black text-[10px] font-serif italic uppercase tracking-widest px-3 py-1 rounded-md z-10">
+                      {product.badge}
                     </span>
-                    {product.badge && (
-                      <span className="bg-black/60 backdrop-blur-md text-white border border-white/20 text-[9px] font-serif italic uppercase tracking-widest px-2.5 py-1 rounded-md">
-                        {product.badge}
-                      </span>
-                    )}
-                  </div>
+                  )}
+
+                  {/* Front/Back Flip Switcher for Tees */}
+                  {activeColor && (
+                    <button
+                      onClick={() => toggleView(product.id)}
+                      className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-md text-white border border-white/20 text-xs px-3 py-1.5 rounded-full hover:border-[#FFB800] transition-colors z-10 flex items-center gap-1 font-serif italic"
+                    >
+                      <span>View: {isBackView ? "Back" : "Front"}</span>
+                      <ChevronRight size={14} />
+                    </button>
+                  )}
                 </div>
 
                 {/* Details */}
@@ -283,16 +313,40 @@ export default function MerchShopPage() {
                   <span className="text-xs uppercase text-[#FFB800] mb-1">
                     {product.category}
                   </span>
-                  <h3 className="text-2xl font-serif italic text-white mb-2 group-hover:text-[#FFB800] transition-colors">
+                  <h3 className="text-2xl font-serif italic text-white mb-2">
                     {product.name}
                   </h3>
                   <p className="text-xs text-gray-400 mb-6 font-serif italic">
                     {product.description}
                   </p>
 
+                  {/* Color Selector (Tees) */}
+                  {product.colors && (
+                    <div className="mb-6">
+                      <p className="text-xs uppercase text-gray-400 mb-2 font-serif italic">
+                        Color: <span className="text-white">{activeColor?.colorName}</span>
+                      </p>
+                      <div className="flex gap-3">
+                        {product.colors.map((col, idx) => (
+                          <button
+                            key={col.colorName}
+                            onClick={() => handleColorSelect(product.id, idx)}
+                            title={col.colorName}
+                            className={`w-7 h-7 rounded-full border-2 transition-all ${
+                              colorIdx === idx
+                                ? "border-[#FFB800] scale-110"
+                                : "border-white/20 hover:border-white/60"
+                            }`}
+                            style={{ backgroundColor: col.hex }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Size Selector */}
                   <div className="mb-6">
-                    <p className="text-xs uppercase text-gray-500 mb-2">Select Size</p>
+                    <p className="text-xs uppercase text-gray-400 mb-2 font-serif italic">Select Size</p>
                     <div className="flex gap-2">
                       {product.sizes.map((size) => (
                         <button
@@ -313,23 +367,20 @@ export default function MerchShopPage() {
                   {/* Action Bar */}
                   <div className="mt-auto pt-4 border-t border-white/10 flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 line-through">
-                        KES {product.originalPrice.toLocaleString()}
-                      </p>
-                      <p className="text-xl text-white font-serif italic">
+                      <p className="text-xs text-gray-500 uppercase">Price</p>
+                      <p className="text-xl text-[#FFB800] font-serif italic">
                         KES {product.price.toLocaleString()}
                       </p>
                     </div>
 
                     <button
                       onClick={() => addToCart(product)}
-                      className="flex items-center gap-2 bg-[#FFB800] hover:bg-[#e5a600] text-black px-5 py-3 rounded-xl text-xs uppercase tracking-wider font-serif italic transition-all active:scale-95"
+                      className="flex items-center gap-2 bg-[#FFB800] hover:bg-[#e5a600] text-black px-6 py-3 rounded-xl text-xs uppercase tracking-wider font-serif italic transition-all active:scale-95"
                     >
                       <ShoppingBag size={14} />
                       <span>Add To Cart</span>
                     </button>
                   </div>
-
                 </div>
               </div>
             );
@@ -337,19 +388,15 @@ export default function MerchShopPage() {
         </div>
       </main>
 
-      {/* 4. SLIDE-OVER CART & M-PESA CHECKOUT DRAWER */}
+      {/* DRAWER & CHECKOUT */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
           <div
             onClick={() => setIsCartOpen(false)}
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
           />
 
-          {/* Drawer Body */}
           <div className="relative w-full max-w-md bg-neutral-950 border-l border-white/10 h-full flex flex-col p-6 z-10 overflow-y-auto">
-            
-            {/* Drawer Header */}
             <div className="flex items-center justify-between pb-6 border-b border-white/10">
               <h3 className="text-xl font-serif italic uppercase text-white">
                 {isCheckoutStep ? "M-Pesa Checkout" : `Your Bag (${cartItemCount})`}
@@ -366,7 +413,6 @@ export default function MerchShopPage() {
               </button>
             </div>
 
-            {/* Payment Successful Screen */}
             {paymentSuccess ? (
               <div className="my-auto text-center py-12">
                 <div className="w-16 h-16 bg-[#FFB800]/20 border border-[#FFB800] rounded-full flex items-center justify-center mx-auto mb-6 text-[#FFB800]">
@@ -390,7 +436,6 @@ export default function MerchShopPage() {
                 </button>
               </div>
             ) : isCheckoutStep ? (
-              /* Checkout Form Step */
               <form onSubmit={handleSTKPush} className="flex-1 flex flex-col justify-between py-6">
                 <div className="space-y-5">
                   <div>
@@ -467,7 +512,6 @@ export default function MerchShopPage() {
                 </div>
               </form>
             ) : (
-              /* Shopping Cart List Step */
               <div className="flex-1 flex flex-col justify-between pt-6">
                 {cart.length === 0 ? (
                   <div className="my-auto text-center py-12">
@@ -479,22 +523,15 @@ export default function MerchShopPage() {
                     <div className="space-y-4 overflow-y-auto pr-1">
                       {cart.map((item, index) => (
                         <div
-                          key={`${item.product.id}-${item.selectedSize}`}
+                          key={item.cartId}
                           className="flex items-center gap-4 bg-white/[0.02] border border-white/10 p-3 rounded-2xl"
                         >
-                          <div className="relative h-16 w-16 rounded-xl overflow-hidden bg-neutral-900 flex-shrink-0">
-                            <Image
-                              src={item.product.image}
-                              alt={item.product.name}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="text-sm font-serif italic text-white truncate">
                               {item.product.name}
                             </h4>
                             <p className="text-xs text-gray-400 font-serif italic">
+                              {item.selectedColor ? `Color: ${item.selectedColor} | ` : ""}
                               Size: {item.selectedSize} | Qty: {item.quantity}
                             </p>
                             <p className="text-xs text-[#FFB800] font-serif italic mt-1">
@@ -527,11 +564,9 @@ export default function MerchShopPage() {
                 )}
               </div>
             )}
-
           </div>
         </div>
       )}
-
     </div>
   );
 }
