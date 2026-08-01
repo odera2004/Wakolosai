@@ -6,7 +6,7 @@ import { ArrowUp } from "lucide-react";
 const footerLinks = {
   
   connect: [
-    { label: "Instagram", href: "https://instagram.com" },
+    { label: "Instagram", href: "https://www.instagram.com/wakolosai_/" },
     { label: "YouTube", href: "https://www.youtube.com/@billwanjala" },
     { label: "Contact", href: "mailto:info@wakolosai.com" },
   ],
