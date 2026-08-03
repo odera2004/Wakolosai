@@ -135,7 +135,7 @@ export function CollectionSection() {
       const data = await res.json();
 
       if (res.ok && data.checkoutUrl) {
-        // 🚀 Redirect to IntaSend Hosted Checkout
+        // 🚀 Redirect to IntaSend Hosted Checkout Page
         window.location.href = data.checkoutUrl;
       } else {
         alert(`❌ ${data.error || "Failed to initialize payment checkout."}`);
@@ -173,7 +173,7 @@ export function CollectionSection() {
       const data = await res.json();
 
       if (res.ok && data.checkoutUrl) {
-        // 🚀 Redirect to IntaSend Hosted Checkout
+        // 🚀 Redirect to IntaSend Hosted Checkout Page
         window.location.href = data.checkoutUrl;
       } else {
         alert(`❌ ${data.error || "Failed to initialize support checkout."}`);
@@ -181,7 +181,7 @@ export function CollectionSection() {
     } catch (err) {
       console.error("Support Checkout Error:", err);
       alert("❌ Connection failed. Please try again.");
-    } finally {
+    } fontally {
       setSupportLoading(false);
     }
   };
