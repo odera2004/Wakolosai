@@ -102,7 +102,7 @@ export function CollectionSection() {
     0
   );
 
-  // Ticket Checkout Handler
+  // Ticket Checkout Handler (Redirects to IntaSend Checkout Modal/Page)
   const handleCheckout = async () => {
     if (!email.trim() || !phone.trim() || totalAmount === 0) {
       return alert("Please fill in your details and select at least one ticket.");
@@ -134,11 +134,11 @@ export function CollectionSection() {
 
       const data = await res.json();
 
-      if (res.ok) {
-        alert("✅ M-Pesa STK Push Sent! Enter your PIN on your phone to complete your ticket purchase.");
-        setQuantities({ "early-bird": 0, advanced: 0, gate: 0 });
+      if (res.ok && data.checkoutUrl) {
+        // 🚀 Redirect to IntaSend Hosted Checkout
+        window.location.href = data.checkoutUrl;
       } else {
-        alert(`❌ ${data.error || "STK Push failed."}`);
+        alert(`❌ ${data.error || "Failed to initialize payment checkout."}`);
       }
     } catch (err) {
       console.error("Connection Error:", err);
@@ -172,11 +172,11 @@ export function CollectionSection() {
 
       const data = await res.json();
 
-      if (res.ok) {
-        alert("✅ STK Push Sent for Support Contribution! Enter your M-Pesa PIN to complete.");
-        setSupportAmount("");
+      if (res.ok && data.checkoutUrl) {
+        // 🚀 Redirect to IntaSend Hosted Checkout
+        window.location.href = data.checkoutUrl;
       } else {
-        alert(`❌ ${data.error || "Failed to trigger STK Push."}`);
+        alert(`❌ ${data.error || "Failed to initialize support checkout."}`);
       }
     } catch (err) {
       console.error("Support Checkout Error:", err);
@@ -367,7 +367,7 @@ export function CollectionSection() {
                   className="w-full bg-gradient-to-r from-[#FFB800] to-[#e0a200] hover:opacity-90 active:scale-[0.98] text-black font-extrabold text-xs uppercase tracking-widest py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   {supportLoading ? <Loader2 className="animate-spin text-black" size={16} /> : <Heart size={16} className="fill-black" />}
-                  {supportLoading ? "Sending STK Push..." : `Send Support (KES ${Number(supportAmount || 0).toLocaleString()})`}
+                  {supportLoading ? "Initializing Checkout..." : `Send Support (KES ${Number(supportAmount || 0).toLocaleString()})`}
                 </button>
               </div>
             </div>
@@ -460,7 +460,7 @@ export function CollectionSection() {
                     className="w-full bg-[#FFB800] hover:bg-[#e0a200] active:scale-[0.98] text-black font-extrabold text-xs md:text-sm uppercase tracking-widest py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 shadow-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#FFB800]"
                   >
                     {loading ? <Loader2 className="animate-spin text-black" size={18} /> : <Ticket size={18} />}
-                    {loading ? "Triggering M-Pesa..." : "Buy Pass via M-Pesa"}
+                    {loading ? "Redirecting to Payment..." : "Buy Pass via M-Pesa"}
                   </button>
                 </div>
               </div>
