@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { FadeImage } from "@/components/ui/fade-image";
-import { Loader2, Ticket, Calendar, MapPin, Clock, ShieldCheck, Sparkles, Heart } from "lucide-react";
+import { Loader2, Ticket, Calendar, MapPin, Clock, ShieldCheck, Sparkles, Heart, TestTube } from "lucide-react";
 
 interface TicketTier {
   id: string;
@@ -55,6 +55,9 @@ export function CollectionSection() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // TEMPORARY TEST MODE STATE
+  const [isTestMode, setIsTestMode] = useState<boolean>(true);
+
   // Support / Donation state
   const [supportAmount, setSupportAmount] = useState<string>("");
   const [supportPhone, setSupportPhone] = useState("");
@@ -97,14 +100,18 @@ export function CollectionSection() {
     }));
   };
 
-  const totalAmount = tiers.reduce(
+  // Calculates normal total vs KES 1 test total
+  const rawTotalAmount = tiers.reduce(
     (sum, tier) => sum + tier.price * (quantities[tier.id] || 0),
     0
   );
+  
+  const hasSelectedTickets = Object.values(quantities).some((qty) => qty > 0);
+  const finalCheckoutAmount = isTestMode && hasSelectedTickets ? 1 : rawTotalAmount;
 
   // Ticket Checkout Handler
   const handleCheckout = async () => {
-    if (!email.trim() || !phone.trim() || totalAmount === 0) {
+    if (!email.trim() || !phone.trim() || !hasSelectedTickets) {
       return alert("Please fill in your details and select at least one ticket.");
     }
 
@@ -114,7 +121,7 @@ export function CollectionSection() {
       .filter(([_, qty]) => qty > 0)
       .map(([id, qty]) => {
         const tierName = tiers.find((t) => t.id === id)?.name;
-        return `${qty}x ${tierName}`;
+        return `${qty}x ${tierName}${isTestMode ? " (Test Mode)" : ""}`;
       })
       .join(", ");
 
@@ -125,7 +132,7 @@ export function CollectionSection() {
         body: JSON.stringify({
           phone: phone.trim(),
           email: email.toLowerCase().trim(),
-          amount: totalAmount,
+          amount: finalCheckoutAmount, // Sends 1 when test mode is active
           ticketType: ticketSummary,
           tierBreakdown: quantities,
           isSupport: false,
@@ -135,7 +142,7 @@ export function CollectionSection() {
       const data = await res.json();
 
       if (res.ok) {
-        alert("✅ M-Pesa STK Push Sent! Enter your PIN on your phone to complete your ticket purchase.");
+        alert(`✅ M-Pesa STK Push Sent for KES ${finalCheckoutAmount}! Enter your PIN on your phone to complete your ticket purchase.`);
         setQuantities({ "early-bird": 0, advanced: 0, gate: 0 });
       } else {
         alert(`❌ ${data.error || "STK Push failed."}`);
@@ -256,7 +263,9 @@ export function CollectionSection() {
 
                     <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/5">
                       <div>
-                        <span className="text-2xl font-black text-[#FFB800]">KES {tier.price.toLocaleString()}</span>
+                        <span className="text-2xl font-black text-[#FFB800]">
+                          KES {isTestMode ? "1 (Test)" : tier.price.toLocaleString()}
+                        </span>
                         <span className="text-[10px] font-serif italic text-gray-500 uppercase block">per pass</span>
                       </div>
 
@@ -414,9 +423,25 @@ export function CollectionSection() {
 
             {/* CHECKOUT CARD */}
             <div className="bg-neutral-900 p-6 md:p-8 rounded-3xl border border-white/10 shadow-2xl">
-              <h3 className="text-sm font-serif italic font-black uppercase tracking-widest text-gray-400 mb-6">
-                2. Reservation Details
-              </h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-sm font-serif italic font-black uppercase tracking-widest text-gray-400">
+                  2. Reservation Details
+                </h3>
+
+                {/* TEMPORARY KES 1 TEST TOGGLE */}
+                <button
+                  type="button"
+                  onClick={() => setIsTestMode(!isTestMode)}
+                  className={`flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full border transition-all ${
+                    isTestMode
+                      ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                      : "bg-white/5 text-gray-500 border-white/10 hover:text-white"
+                  }`}
+                >
+                  <TestTube size={12} />
+                  {isTestMode ? "Test Mode: KES 1" : "Live Pricing"}
+                </button>
+              </div>
               
               <div className="space-y-5">
                 <div>
@@ -448,19 +473,25 @@ export function CollectionSection() {
                 <div className="pt-5 border-t border-white/10">
                   <div className="flex justify-between items-end mb-6">
                     <div>
-                      <span className="text-[10px] font-serif italic text-gray-400 uppercase tracking-widest font-bold block">Total Amount</span>
-                      <span className="text-xs font-serif italic text-gray-500">Includes all taxes</span>
+                      <span className="text-[10px] font-serif italic text-gray-400 uppercase tracking-widest font-bold block">
+                        Total Amount {isTestMode && "(Testing)"}
+                      </span>
+                      <span className="text-xs font-serif italic text-gray-500">
+                        {isTestMode ? "Overridden to KES 1" : "Includes all taxes"}
+                      </span>
                     </div>
-                    <span className="text-3xl font-black text-[#FFB800]">KES {totalAmount.toLocaleString()}</span>
+                    <span className="text-3xl font-black text-[#FFB800]">
+                      KES {finalCheckoutAmount.toLocaleString()}
+                    </span>
                   </div>
 
                   <button
                     onClick={handleCheckout}
-                    disabled={loading || totalAmount === 0}
+                    disabled={loading || !hasSelectedTickets}
                     className="w-full bg-[#FFB800] hover:bg-[#e0a200] active:scale-[0.98] text-black font-extrabold text-xs md:text-sm uppercase tracking-widest py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 shadow-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#FFB800]"
                   >
                     {loading ? <Loader2 className="animate-spin text-black" size={18} /> : <Ticket size={18} />}
-                    {loading ? "Triggering M-Pesa..." : "Buy Pass via M-Pesa"}
+                    {loading ? "Triggering M-Pesa..." : `Pay KES ${finalCheckoutAmount} via M-Pesa`}
                   </button>
                 </div>
               </div>
