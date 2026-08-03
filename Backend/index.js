@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Guard: Early environment variable check
+// Guard: Check missing required environment variables
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
   console.error("❌ CRITICAL ERROR: SUPABASE_URL or SUPABASE_ANON_KEY is missing!");
   process.exit(1);
@@ -23,14 +23,14 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const intasend = new IntaSend(
   process.env.INTASEND_PUBLISHABLE_KEY,
   process.env.INTASEND_SECRET_KEY,
-  process.env.INTASEND_TEST_MODE === "true" // Set to false for live production
+  process.env.INTASEND_TEST_MODE === "true" // Set to false in live production
 );
 
 // Base URLs
 const BASE_URL = process.env.BACKEND_URL || (process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : "https://wakolosai.onrender.com");
 const FRONTEND_URL = process.env.FRONTEND_URL || "https://wakolosai.xyz";
 
-// Helper: Format Phone Numbers to 254XXXXXXXXX
+// Helper: Format Phone Numbers strictly to 254XXXXXXXXX (Prevents "Customer does not exist" Safaricom error)
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
   let cleaned = phone.toString().trim().replace(/\D/g, "");
@@ -38,6 +38,8 @@ const formatPhoneNumber = (phone) => {
     return "254" + cleaned.substring(1);
   } else if (cleaned.startsWith("7") || cleaned.startsWith("1")) {
     return "254" + cleaned;
+  } else if (cleaned.startsWith("254")) {
+    return cleaned;
   }
   return cleaned;
 };
@@ -106,44 +108,40 @@ app.post("/api/test-email", async (req, res) => {
   }
 });
 
-// 2. IntaSend Hosted Checkout Session Creation Endpoint
+// 2. Direct In-App M-Pesa STK Push Endpoint
 app.post("/api/buy-ticket", async (req, res) => {
-  const { phone, email, amount, ticketType, name } = req.body;
+  const { phone, email, amount, ticketType } = req.body;
 
-  if (!email || !amount) {
-    return res.status(400).json({ error: "Missing required fields: email, amount" });
+  if (!email || !amount || !phone) {
+    return res.status(400).json({ error: "Missing required fields: phone, email, amount" });
   }
 
   const formattedPhone = formatPhoneNumber(phone);
-  console.log(`📡 Creating IntaSend Checkout URL for ${email} (${formattedPhone || "No Phone"})...`);
+
+  if (!formattedPhone || formattedPhone.length !== 12 || !formattedPhone.startsWith("254")) {
+    return res.status(400).json({ error: "Invalid M-Pesa phone number. Use format: 0712345678 or 254712345678" });
+  }
+
+  console.log(`📡 Triggering Direct M-Pesa STK Push for ${formattedPhone} (${email})...`);
 
   try {
-    let collection = intasend.collection();
+    const mpesa = intasend.mpesa();
     
-    // ✅ Uses collection.charge() as required by intasend-node SDK
-    const response = await collection.charge({
-      first_name: name || "Customer",
-      last_name: "User",
+    // Direct STK Push call (triggers M-Pesa popup directly on user phone)
+    const response = await mpesa.stkPush({
+      phone_number: formattedPhone,
       email: email,
       amount: Number(amount),
-      currency: "KES",
-      phone_number: formattedPhone,
       api_ref: `WAKOLOSAI-${Date.now()}`,
-      redirect_url: `${FRONTEND_URL}/success`,
       comment: ticketType || "Ticket Purchase",
     });
 
-    console.log("📲 IntaSend Checkout Created:", JSON.stringify(response, null, 2));
+    console.log("📲 M-Pesa STK Push Sent:", JSON.stringify(response, null, 2));
 
-    const checkoutUrl = response.url;
-    const checkoutID = response.id || response.invoice?.invoice_id || response.api_ref;
-
-    if (!checkoutUrl) {
-      throw new Error("IntaSend did not return a valid checkout URL.");
-    }
+    const checkoutID = response.invoice?.invoice_id || response.id || response.api_ref;
 
     // Save initial record as 'pending' in Supabase DB
-    const { data: ticket, error: dbError } = await supabase
+    const { error: dbError } = await supabase
       .from("tickets")
       .insert([
         {
@@ -154,17 +152,20 @@ app.post("/api/buy-ticket", async (req, res) => {
           ticket_type: ticketType || "Standard",
           status: "pending",
         },
-      ])
-      .select()
-      .single();
+      ]);
 
-    if (dbError) throw dbError;
+    if (dbError) {
+      console.error("⚠️ DB Insert Warning:", dbError.message);
+    }
 
-    console.log(`✅ Saved pending record in DB for checkoutID: ${checkoutID}`);
-    res.json({ success: true, checkoutID, checkoutUrl });
+    res.json({
+      success: true,
+      message: "STK Push sent to phone!",
+      checkoutID,
+    });
   } catch (err) {
-    console.error("❌ IntaSend Checkout Error:", err.message || err);
-    res.status(500).json({ error: err.message || "Payment session creation failed" });
+    console.error("❌ STK Push Error:", err.message || err);
+    res.status(500).json({ error: err.message || "Failed to trigger M-Pesa STK Push" });
   }
 });
 
@@ -176,7 +177,7 @@ app.post("/api/callback", async (req, res) => {
   try {
     const { invoice_id, state, api_ref, challenge, status } = req.body;
 
-    // Support IntaSend security challenge check
+    // Support IntaSend challenge check
     if (challenge) {
       return res.json({ challenge });
     }
