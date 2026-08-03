@@ -376,3 +376,8 @@ export function MerchSection() {
     </section>
   );
 }
+
+// 🔑 THIS FIXES YOUR ERROR:
+// Next.js expects 'CollectionSection' on line 4 of app/page.tsx.
+// We export MerchSection as CollectionSection here so both names work!
+export { MerchSection as CollectionSection };
