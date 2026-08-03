@@ -119,7 +119,9 @@ app.post("/api/buy-ticket", async (req, res) => {
 
   try {
     let collection = intasend.collection();
-    const response = await collection.createCheckout({
+    
+    // ✅ Uses collection.charge() as required by intasend-node SDK
+    const response = await collection.charge({
       first_name: name || "Customer",
       last_name: "User",
       email: email,
@@ -133,8 +135,12 @@ app.post("/api/buy-ticket", async (req, res) => {
 
     console.log("📲 IntaSend Checkout Created:", JSON.stringify(response, null, 2));
 
-    const checkoutID = response.id || response.invoice?.invoice_id || response.api_ref;
     const checkoutUrl = response.url;
+    const checkoutID = response.id || response.invoice?.invoice_id || response.api_ref;
+
+    if (!checkoutUrl) {
+      throw new Error("IntaSend did not return a valid checkout URL.");
+    }
 
     // Save initial record as 'pending' in Supabase DB
     const { data: ticket, error: dbError } = await supabase
