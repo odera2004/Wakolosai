@@ -20,17 +20,11 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const intasend = new IntaSend(
-  process.env.INTASEND_PUBLISHABLE_KEY,
-  process.env.INTASEND_SECRET_KEY,
-  process.env.INTASEND_TEST_MODE === "true" // Set to false in live production
-);
-
 // Base URLs
 const BASE_URL = process.env.BACKEND_URL || (process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : "https://wakolosai.onrender.com");
 const FRONTEND_URL = process.env.FRONTEND_URL || "https://wakolosai.xyz";
 
-// Helper: Format Phone Numbers strictly to 254XXXXXXXXX (Prevents "Customer does not exist" Safaricom error)
+// Helper: Format Phone Numbers strictly to 254XXXXXXXXX (Prevents Safaricom routing errors)
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
   let cleaned = phone.toString().trim().replace(/\D/g, "");
@@ -119,15 +113,20 @@ app.post("/api/buy-ticket", async (req, res) => {
   const formattedPhone = formatPhoneNumber(phone);
 
   if (!formattedPhone || formattedPhone.length !== 12 || !formattedPhone.startsWith("254")) {
-    return res.status(400).json({ error: "Invalid M-Pesa phone number. Use format: 0712345678 or 254712345678" });
+    return res.status(400).json({ error: "Invalid M-Pesa phone number. Format should be 07... or 2547..." });
   }
 
   console.log(`📡 Triggering Direct M-Pesa STK Push for ${formattedPhone} (${email})...`);
 
   try {
-    const mpesa = intasend.mpesa();
-    
-    // Direct STK Push call (triggers M-Pesa popup directly on user phone)
+    // ✅ Instantiate Mpesa class directly from IntaSend SDK
+    const mpesa = new IntaSend.Mpesa(
+      process.env.INTASEND_PUBLISHABLE_KEY,
+      process.env.INTASEND_SECRET_KEY,
+      process.env.INTASEND_TEST_MODE === "true"
+    );
+
+    // Direct STK Push call
     const response = await mpesa.stkPush({
       phone_number: formattedPhone,
       email: email,
@@ -154,9 +153,7 @@ app.post("/api/buy-ticket", async (req, res) => {
         },
       ]);
 
-    if (dbError) {
-      console.error("⚠️ DB Insert Warning:", dbError.message);
-    }
+    if (dbError) console.error("⚠️ DB Insert Error:", dbError.message);
 
     res.json({
       success: true,
@@ -177,7 +174,7 @@ app.post("/api/callback", async (req, res) => {
   try {
     const { invoice_id, state, api_ref, challenge, status } = req.body;
 
-    // Support IntaSend challenge check
+    // Support IntaSend security challenge check
     if (challenge) {
       return res.json({ challenge });
     }
