@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { ShoppingBag, Check, Sparkles, Filter, ArrowUpRight } from "lucide-react";
+import { ShoppingBag, Check, Sparkles, X, Loader2, Phone, Mail } from "lucide-react";
 
 interface Product {
   id: string;
@@ -26,7 +26,7 @@ const merchProducts: Product[] = [
     originalPrice: 4500,
     discount: "-22%",
     badge: "BESTSELLER",
-    image: "/images/rs-13.jpg", // Fallback to your asset or hoodie render
+    image: "/images/rs-13.jpg",
     description: "480 GSM Ultra-Thick Cotton, Drop Shoulder Streetwear Fit",
     sizes: ["M", "L", "XL", "XXL"],
   },
@@ -87,10 +87,18 @@ const merchProducts: Product[] = [
   },
 ];
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://wakolosai.onrender.com";
+
 export function MerchSection() {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [selectedSizes, setSelectedSizes] = useState<{ [key: string]: string }>({});
-  const [addedItems, setAddedItems] = useState<{ [key: string]: boolean }>({});
+  
+  // Checkout Modal States
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const filteredProducts =
     activeCategory === "all"
@@ -101,15 +109,60 @@ export function MerchSection() {
     setSelectedSizes((prev) => ({ ...prev, [productId]: size }));
   };
 
-  const handleAddToCart = (product: Product) => {
-    setAddedItems((prev) => ({ ...prev, [product.id]: true }));
-    setTimeout(() => {
-      setAddedItems((prev) => ({ ...prev, [product.id]: false }));
-    }, 2000);
+  const handleOpenCheckout = (product: Product) => {
+    setSelectedProduct(product);
+    setStatusMessage(null);
+  };
+
+  const handleMpesaCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProduct) return;
+
+    setLoading(true);
+    setStatusMessage(null);
+
+    const size = selectedSizes[selectedProduct.id] || selectedProduct.sizes?.[0] || "N/A";
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/buy-ticket`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone,
+          email,
+          amount: selectedProduct.price,
+          ticketType: `MERCH: ${selectedProduct.name} (${size})`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to trigger payment.");
+      }
+
+      setStatusMessage({
+        type: "success",
+        text: "📲 M-Pesa STK Push sent! Please enter your PIN on your phone.",
+      });
+
+      setTimeout(() => {
+        setSelectedProduct(null);
+        setStatusMessage(null);
+      }, 4000);
+    } catch (err: any) {
+      console.error("Checkout Error:", err);
+      setStatusMessage({
+        type: "error",
+        text: err.message || "Could not connect to backend server.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <section id="merch-section" className="bg-black text-white py-28 px-6 md:px-12 lg:px-20 border-t border-white/10 select-none">
+    <section id="merch-section" className="bg-black text-white py-28 px-6 md:px-12 lg:px-20 border-t border-white/10 select-none relative">
       <div className="max-w-7xl mx-auto">
         
         {/* Header Title */}
@@ -145,7 +198,6 @@ export function MerchSection() {
         {/* Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredProducts.map((product) => {
-            const isAdded = addedItems[product.id];
             const currentSize = selectedSizes[product.id] || product.sizes?.[0];
 
             return (
@@ -188,7 +240,7 @@ export function MerchSection() {
                     {product.description}
                   </p>
 
-                  {/* Size Selector (If applicable) */}
+                  {/* Size Selector */}
                   {product.sizes && (
                     <div className="mb-6">
                       <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">
@@ -224,24 +276,11 @@ export function MerchSection() {
                     </div>
 
                     <button
-                      onClick={() => handleAddToCart(product)}
-                      className={`flex items-center gap-2 px-5 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all duration-300 ${
-                        isAdded
-                          ? "bg-green-500 text-black"
-                          : "bg-[#FFB800] hover:bg-[#e5a600] text-black shadow-[0_0_15px_rgba(255,184,0,0.2)] active:scale-95"
-                      }`}
+                      onClick={() => handleOpenCheckout(product)}
+                      className="flex items-center gap-2 px-5 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-[#FFB800] hover:bg-[#e5a600] text-black shadow-[0_0_15px_rgba(255,184,0,0.2)] active:scale-95 transition-all duration-300"
                     >
-                      {isAdded ? (
-                        <>
-                          <Check size={14} />
-                          <span>Added</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingBag size={14} />
-                          <span>Buy Now</span>
-                        </>
-                      )}
+                      <ShoppingBag size={14} />
+                      <span>Buy Now</span>
                     </button>
                   </div>
 
@@ -252,6 +291,88 @@ export function MerchSection() {
         </div>
 
       </div>
+
+      {/* M-Pesa Checkout Modal */}
+      {selectedProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="relative w-full max-w-md bg-neutral-900 border border-white/20 rounded-3xl p-6 shadow-2xl">
+            
+            <button
+              onClick={() => setSelectedProduct(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+            >
+              <X size={20} />
+            </button>
+
+            <h3 className="text-2xl font-serif italic text-[#FFB800] mb-2">
+              Complete Order
+            </h3>
+            <p className="text-xs text-gray-400 mb-6">
+              You are purchasing <strong className="text-white">{selectedProduct.name}</strong> for{" "}
+              <strong className="text-[#FFB800]">KES {selectedProduct.price.toLocaleString()}</strong>
+            </p>
+
+            <form onSubmit={handleMpesaCheckout} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-400 mb-1">Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 text-gray-500" size={16} />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="eugene@gmail.com"
+                    className="w-full bg-black/50 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#FFB800]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-400 mb-1">M-Pesa Phone Number</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-3 text-gray-500" size={16} />
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="0708486624 or 254708486624"
+                    className="w-full bg-black/50 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#FFB800]"
+                  />
+                </div>
+              </div>
+
+              {statusMessage && (
+                <div
+                  className={`p-3 rounded-xl text-xs font-bold ${
+                    statusMessage.type === "success"
+                      ? "bg-green-500/10 border border-green-500/30 text-green-400"
+                      : "bg-red-500/10 border border-red-500/30 text-red-400"
+                  }`}
+                >
+                  {statusMessage.text}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-wider bg-[#FFB800] text-black hover:bg-[#e5a600] flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin" size={18} />
+                    <span>Sending STK Push...</span>
+                  </>
+                ) : (
+                  <span>Pay KES {selectedProduct.price.toLocaleString()} via M-Pesa</span>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
