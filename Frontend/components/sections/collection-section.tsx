@@ -102,10 +102,10 @@ export function CollectionSection() {
     0
   );
 
-  // Ticket Checkout Handler (Redirects to IntaSend Checkout Modal/Page)
+  // Direct In-App Ticket STK Push Checkout
   const handleCheckout = async () => {
     if (!email.trim() || !phone.trim() || totalAmount === 0) {
-      return alert("Please fill in your details and select at least one ticket.");
+      return alert("Please fill in your M-Pesa phone number, email, and select at least 1 ticket.");
     }
 
     setLoading(true);
@@ -127,32 +127,29 @@ export function CollectionSection() {
           email: email.toLowerCase().trim(),
           amount: totalAmount,
           ticketType: ticketSummary,
-          tierBreakdown: quantities,
-          isSupport: false,
         }),
       });
 
       const data = await res.json();
 
-      if (res.ok && data.checkoutUrl) {
-        // 🚀 Redirect to IntaSend Hosted Checkout Page
-        window.location.href = data.checkoutUrl;
+      if (res.ok) {
+        alert("📲 M-Pesa STK Push sent! Please check your phone screen and enter your M-Pesa PIN.");
       } else {
-        alert(`❌ ${data.error || "Failed to initialize payment checkout."}`);
+        alert(`❌ ${data.error || "Failed to trigger M-Pesa STK Push."}`);
       }
     } catch (err) {
       console.error("Connection Error:", err);
-      alert("❌ Connection failed. Ensure your server is online.");
+      alert("❌ Connection failed. Please ensure your backend is online.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Support / Offering Handler
+  // Direct In-App Support STK Push Handler
   const handleSupportCheckout = async () => {
     const amt = Number(supportAmount);
     if (!supportEmail.trim() || !supportPhone.trim() || !amt || amt <= 0) {
-      return alert("Please enter a valid amount, phone number, and email to send support.");
+      return alert("Please enter a valid amount, phone number, and email.");
     }
 
     setSupportLoading(true);
@@ -166,22 +163,20 @@ export function CollectionSection() {
           email: supportEmail.toLowerCase().trim(),
           amount: amt,
           ticketType: `Support Offering (KES ${amt})`,
-          isSupport: true,
         }),
       });
 
       const data = await res.json();
 
-      if (res.ok && data.checkoutUrl) {
-        // 🚀 Redirect to IntaSend Hosted Checkout Page
-        window.location.href = data.checkoutUrl;
+      if (res.ok) {
+        alert("📲 M-Pesa STK Push sent for support! Please check your phone to enter PIN.");
       } else {
-        alert(`❌ ${data.error || "Failed to initialize support checkout."}`);
+        alert(`❌ ${data.error || "Failed to trigger M-Pesa STK Push."}`);
       }
     } catch (err) {
       console.error("Support Checkout Error:", err);
       alert("❌ Connection failed. Please try again.");
-    } fontally {
+    } finally {
       setSupportLoading(false);
     }
   };
@@ -367,7 +362,7 @@ export function CollectionSection() {
                   className="w-full bg-gradient-to-r from-[#FFB800] to-[#e0a200] hover:opacity-90 active:scale-[0.98] text-black font-extrabold text-xs uppercase tracking-widest py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   {supportLoading ? <Loader2 className="animate-spin text-black" size={16} /> : <Heart size={16} className="fill-black" />}
-                  {supportLoading ? "Initializing Checkout..." : `Send Support (KES ${Number(supportAmount || 0).toLocaleString()})`}
+                  {supportLoading ? "Sending STK Push..." : `Send Support (KES ${Number(supportAmount || 0).toLocaleString()})`}
                 </button>
               </div>
             </div>
@@ -460,7 +455,7 @@ export function CollectionSection() {
                     className="w-full bg-[#FFB800] hover:bg-[#e0a200] active:scale-[0.98] text-black font-extrabold text-xs md:text-sm uppercase tracking-widest py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 shadow-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#FFB800]"
                   >
                     {loading ? <Loader2 className="animate-spin text-black" size={18} /> : <Ticket size={18} />}
-                    {loading ? "Redirecting to Payment..." : "Buy Pass via M-Pesa"}
+                    {loading ? "Sending STK Push..." : "Buy Pass via M-Pesa"}
                   </button>
                 </div>
               </div>
