@@ -23,11 +23,12 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const intasend = new IntaSend(
   process.env.INTASEND_PUBLISHABLE_KEY,
   process.env.INTASEND_SECRET_KEY,
-  process.env.INTASEND_TEST_MODE === "true" // set to false for production
+  process.env.INTASEND_TEST_MODE === "true" // Set to false for live production
 );
 
-// Base URL detection
+// Base URLs
 const BASE_URL = process.env.BACKEND_URL || (process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : "https://wakolosai.onrender.com");
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://wakolosai.xyz";
 
 // Helper: Format Phone Numbers to 254XXXXXXXXX
 const formatPhoneNumber = (phone) => {
@@ -105,31 +106,35 @@ app.post("/api/test-email", async (req, res) => {
   }
 });
 
-// 2. IntaSend M-Pesa STK Push Payment Initiation
+// 2. IntaSend Hosted Checkout Session Creation Endpoint
 app.post("/api/buy-ticket", async (req, res) => {
   const { phone, email, amount, ticketType, name } = req.body;
 
-  if (!phone || !email || !amount) {
-    return res.status(400).json({ error: "Missing required fields: phone, email, amount" });
+  if (!email || !amount) {
+    return res.status(400).json({ error: "Missing required fields: email, amount" });
   }
 
   const formattedPhone = formatPhoneNumber(phone);
-  console.log(`📡 Initiating IntaSend STK Push for ${formattedPhone}...`);
+  console.log(`📡 Creating IntaSend Checkout URL for ${email} (${formattedPhone || "No Phone"})...`);
 
   try {
     let collection = intasend.collection();
-    const response = await collection.mpesaStkPush({
+    const response = await collection.createCheckout({
       first_name: name || "Customer",
       last_name: "User",
       email: email,
       amount: Number(amount),
+      currency: "KES",
       phone_number: formattedPhone,
       api_ref: `WAKOLOSAI-${Date.now()}`,
+      redirect_url: `${FRONTEND_URL}/success`,
+      comment: ticketType || "Ticket Purchase",
     });
 
-    console.log("📲 IntaSend Response:", JSON.stringify(response, null, 2));
+    console.log("📲 IntaSend Checkout Created:", JSON.stringify(response, null, 2));
 
-    const checkoutID = response.invoice?.invoice_id || response.id || response.api_ref;
+    const checkoutID = response.id || response.invoice?.invoice_id || response.api_ref;
+    const checkoutUrl = response.url;
 
     // Save initial record as 'pending' in Supabase DB
     const { data: ticket, error: dbError } = await supabase
@@ -149,11 +154,11 @@ app.post("/api/buy-ticket", async (req, res) => {
 
     if (dbError) throw dbError;
 
-    console.log(`✅ Saved pending ticket in DB for checkoutID: ${checkoutID}`);
-    res.json({ success: true, checkoutID, message: "STK push sent to your phone" });
+    console.log(`✅ Saved pending record in DB for checkoutID: ${checkoutID}`);
+    res.json({ success: true, checkoutID, checkoutUrl });
   } catch (err) {
-    console.error("❌ IntaSend STK Push Error:", err.message || err);
-    res.status(500).json({ error: err.message || "Payment initiation failed" });
+    console.error("❌ IntaSend Checkout Error:", err.message || err);
+    res.status(500).json({ error: err.message || "Payment session creation failed" });
   }
 });
 
@@ -163,19 +168,20 @@ app.post("/api/callback", async (req, res) => {
   console.log("Payload:", JSON.stringify(req.body, null, 2));
 
   try {
-    const { invoice_id, state, api_ref, value, challenge } = req.body;
+    const { invoice_id, state, api_ref, challenge, status } = req.body;
 
-    // Support IntaSend challenge check if applicable
+    // Support IntaSend security challenge check
     if (challenge) {
       return res.json({ challenge });
     }
 
-    const checkoutID = invoice_id || api_ref;
+    const checkoutID = invoice_id || api_ref || req.body.id;
+    const paymentState = state || status;
 
-    if (state === "COMPLETE" || state === "SUCCESS" || req.body.status === "COMPLETE") {
+    if (paymentState === "COMPLETE" || paymentState === "SUCCESS") {
       console.log(`🎉 IntaSend Payment Verified for Checkout ID: ${checkoutID}`);
 
-      // Search matching row by invoice_id OR checkout_id
+      // Search matching row by checkout_id
       const { data: ticket, error: updateError } = await supabase
         .from("tickets")
         .update({ status: "paid" })
@@ -188,15 +194,15 @@ app.post("/api/callback", async (req, res) => {
         return res.status(500).send("Database record not found");
       }
 
-      // Dispatch Ticket Email
+      // Dispatch Ticket Email with QR code
       await sendTicketEmail(ticket.email, {
         ticketId: ticket.id,
         amount: ticket.amount,
       });
 
-      console.log(`✨ Ticket process complete for ${ticket.email}`);
-    } else {
-      console.warn(`⚠️ Payment state: ${state} for checkout: ${checkoutID}`);
+      console.log(`✨ Ticket delivery complete for ${ticket.email}`);
+    } else if (paymentState === "FAILED" || paymentState === "CANCELLED") {
+      console.warn(`⚠️ Payment marked ${paymentState} for checkout: ${checkoutID}`);
       await supabase
         .from("tickets")
         .update({ status: "failed" })
