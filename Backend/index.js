@@ -23,11 +23,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const intasend = new IntaSend(
   process.env.INTASEND_PUBLISHABLE_KEY,
   process.env.INTASEND_SECRET_KEY,
-  process.env.INTASEND_TEST_MODE === "true" // Set to false for production
+  process.env.INTASEND_TEST_MODE === "true"
 );
-
-// Base URL detection
-const BASE_URL = process.env.BACKEND_URL || (process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : "https://wakolosai.onrender.com");
 
 // Helper: Format Phone Numbers to 254XXXXXXXXX
 const formatPhoneNumber = (phone) => {
@@ -41,17 +38,14 @@ const formatPhoneNumber = (phone) => {
   return cleaned;
 };
 
-// Helper: Generate QR Code Buffer (Fixes email client inline base64 blocking)
+// Helper: Generate QR Code Buffer
 const generateQRCodeBuffer = async (text) => {
   try {
     return await QRCode.toBuffer(text, {
       type: "png",
       margin: 2,
       width: 250,
-      color: {
-        dark: "#000000",
-        light: "#FFFFFF",
-      },
+      color: { dark: "#000000", light: "#FFFFFF" },
     });
   } catch (err) {
     console.error("❌ QR Code generation failed:", err);
@@ -59,16 +53,12 @@ const generateQRCodeBuffer = async (text) => {
   }
 };
 
-// Helper: Send Ticket Email via Resend API
+// Helper: Send Ticket Email via Resend
 const sendTicketEmail = async (email, ticketDetails) => {
   try {
     console.log(`⏳ Generating QR Code attachment for ${email}...`);
     const qrBuffer = await generateQRCodeBuffer(String(ticketDetails.ticketId));
-
-    // Uses your custom sender domain if defined, or falls back to standard dev sender
     const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Events <onboarding@resend.dev>";
-
-    console.log(`📡 Sending ticket email via Resend API to ${email}...`);
 
     const { data, error } = await resend.emails.send({
       from: senderEmail,
@@ -76,22 +66,17 @@ const sendTicketEmail = async (email, ticketDetails) => {
       subject: `Your Wakolosai Ticket [${ticketDetails.ticketId}]`,
       html: `
         <div style="font-family: Arial, sans-serif; padding: 24px; color: #111; max-width: 500px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #ffffff;">
-          <h2 style="color: #d4a000; margin-top: 0; text-transform: uppercase;">🎟️ Payment Confirmed!</h2>
+          <h2 style="color: #FFB800; margin-top: 0; text-transform: uppercase;">🎟️ Payment Confirmed!</h2>
           <p style="font-size: 14px; color: #444;">Here is your official pass for <strong>Wakolosai Live</strong>.</p>
-          
           <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-          
           <p style="font-size: 14px; margin: 6px 0;"><strong>Ticket ID:</strong> <code style="background: #f4f4f4; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${ticketDetails.ticketId}</code></p>
           <p style="font-size: 14px; margin: 6px 0;"><strong>Type / Details:</strong> ${ticketDetails.ticketType || "Standard Pass"}</p>
           <p style="font-size: 14px; margin: 6px 0;"><strong>Amount Paid:</strong> KES ${Number(ticketDetails.amount).toLocaleString()}</p>
-          
           <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-          
           <p style="font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 12px;">Scan QR Code at Entry:</p>
           <div style="text-align: center; margin: 15px 0;">
             <img src="cid:qrcode" alt="Ticket QR Code" style="width: 200px; height: 200px; display: inline-block;" />
           </div>
-          
           <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
           <p style="font-size: 11px; color: #888; text-align: center; margin-bottom: 0;">Wakolosai Experience • Keep this email for gate entrance.</p>
         </div>
@@ -101,17 +86,13 @@ const sendTicketEmail = async (email, ticketDetails) => {
           filename: "qrcode.png",
           content: qrBuffer,
           content_type: "image/png",
-          cid: "qrcode", // Linked directly to <img src="cid:qrcode" />
+          cid: "qrcode",
         },
       ],
     });
 
-    if (error) {
-      console.error("❌ RESEND DELIVERY ERROR:", error);
-      throw error;
-    }
-
-    console.log(`📧 SUCCESS: Email delivered to ${email}. Response ID: ${data?.id}`);
+    if (error) throw error;
+    console.log(`📧 SUCCESS: Ticket email delivered to ${email}. ID: ${data?.id}`);
     return data;
   } catch (err) {
     console.error("❌ Email dispatch failed:", err.message);
@@ -119,47 +100,119 @@ const sendTicketEmail = async (email, ticketDetails) => {
   }
 };
 
-// 1. Direct Email Test Endpoint
-app.post("/api/test-email", async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: "Email is required" });
-
+// Helper: Send Merch Receipt Email via Resend
+const sendMerchReceiptEmail = async (email, orderDetails) => {
   try {
-    console.log(`🧪 Testing email dispatch to: ${email}`);
-    await sendTicketEmail(email, { ticketId: "TEST-TICKET-12345", amount: "100", ticketType: "Test Pass" });
-    res.json({ message: `✅ Test email successfully sent to ${email}` });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to send email", details: error.message });
-  }
-});
+    console.log(`📡 Sending merch receipt email to ${email}...`);
+    const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Store <onboarding@resend.dev>";
 
-// 2. IntaSend M-Pesa STK Push Payment Initiation
+    const itemsTableRows = (orderDetails.cart || [])
+      .map(
+        (item) => `
+        <tr>
+          <td style="padding: 8px 0; border-bottom: 1px solid #eee;">
+            <strong>${item.name}</strong><br/>
+            <span style="font-size: 11px; color: #666;">Size: ${item.size} | Qty: ${item.quantity}</span>
+          </td>
+          <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">
+            KES ${(item.price * item.quantity).toLocaleString()}
+          </td>
+        </tr>
+      `
+      )
+      .join("");
+
+    const { data, error } = await resend.emails.send({
+      from: senderEmail,
+      to: [email],
+      subject: `Your Wakolosai Store Order Confirmation [${orderDetails.orderId}]`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 24px; color: #111; max-width: 500px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #ffffff;">
+          <h2 style="color: #FFB800; margin-top: 0; text-transform: uppercase;">🛍️ Order Confirmed!</h2>
+          <p style="font-size: 14px; color: #444;">Thank you for supporting the movement, <strong>${orderDetails.customerName || "Customer"}</strong>.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+          <p style="font-size: 14px; margin: 6px 0;"><strong>Order Ref:</strong> <code style="background: #f4f4f4; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${orderDetails.orderId}</code></p>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px;">
+            <thead>
+              <tr style="border-bottom: 2px solid #ddd; text-align: left;">
+                <th style="padding-bottom: 6px;">Item</th>
+                <th style="padding-bottom: 6px; text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsTableRows}
+            </tbody>
+          </table>
+          <div style="text-align: right; margin-top: 15px; font-size: 16px;">
+            <strong>Total Paid: KES ${Number(orderDetails.amount).toLocaleString()}</strong>
+          </div>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+          <p style="font-size: 11px; color: #888; text-align: center; margin-bottom: 0;">Wakolosai Official Apparel Vault • Keep this receipt for reference.</p>
+        </div>
+      `,
+    });
+
+    if (error) throw error;
+    console.log(`📧 MERCH EMAIL SUCCESS: Delivered to ${email}. ID: ${data?.id}`);
+    return data;
+  } catch (err) {
+    console.error("❌ Merch email dispatch failed:", err.message);
+    throw err;
+  }
+};
+
+// ----------------------------------------------------
+// 1. EVENT TICKETS ROUTE (Includes 20 Early-Bird Limit)
+// ----------------------------------------------------
 app.post("/api/buy-ticket", async (req, res) => {
-  const { phone, email, amount, ticketType, name } = req.body;
+  const { phone, email, amount, ticketType, tierBreakdown, isSupport } = req.body;
 
   if (!phone || !email || !amount) {
     return res.status(400).json({ error: "Missing required fields: phone, email, amount" });
   }
 
+  // --- HARD LIMIT CAP CHECK (20 Tickets max for Early Bird) ---
+  const earlyBirdQtyRequested = tierBreakdown ? Number(tierBreakdown["early-bird"] || 0) : 0;
+
+  if (earlyBirdQtyRequested > 0 && !isSupport) {
+    try {
+      // Query database for total Early Bird tickets already reserved/paid
+      const { count, error: countError } = await supabase
+        .from("tickets")
+        .select("*", { count: "exact", head: true })
+        .ilike("ticket_type", "%Early Bird%")
+        .neq("status", "failed");
+
+      if (countError) console.error("⚠️ Cap check error:", countError.message);
+
+      const soldCount = count || 0;
+      if (soldCount + earlyBirdQtyRequested > 20) {
+        return res.status(400).json({
+          error: `Sorry! Early Bird tickets (KES 800) are SOLD OUT. Only ${Math.max(0, 20 - soldCount)} left. Please select Advanced or Gate passes.`,
+        });
+      }
+    } catch (capErr) {
+      console.error("❌ Early Bird limit check failed:", capErr.message);
+    }
+  }
+
   const formattedPhone = formatPhoneNumber(phone);
-  console.log(`📡 Initiating IntaSend STK Push for ${formattedPhone}...`);
+  console.log(`📡 Initiating Ticket STK Push for ${formattedPhone}...`);
 
   try {
     let collection = intasend.collection();
     const response = await collection.mpesaStkPush({
-      first_name: name || "Customer",
-      last_name: "User",
+      first_name: "Event",
+      last_name: "Attendee",
       email: email,
       amount: Number(amount),
       phone_number: formattedPhone,
       api_ref: `WAKOLOSAI-${Date.now()}`,
     });
 
-    console.log("📲 IntaSend Response:", JSON.stringify(response, null, 2));
-
     const checkoutID = response.invoice?.invoice_id || response.id || response.api_ref;
 
-    // Save initial record as 'pending' in Supabase DB
+    // Save pending ticket to Supabase
     const { data: ticket, error: dbError } = await supabase
       .from("tickets")
       .insert([
@@ -168,7 +221,7 @@ app.post("/api/buy-ticket", async (req, res) => {
           email,
           phone: formattedPhone,
           amount,
-          ticket_type: ticketType || "Standard",
+          ticket_type: ticketType || "Standard Pass",
           status: "pending",
         },
       ])
@@ -177,59 +230,131 @@ app.post("/api/buy-ticket", async (req, res) => {
 
     if (dbError) throw dbError;
 
-    console.log(`✅ Saved pending ticket in DB for checkoutID: ${checkoutID}`);
     res.json({ success: true, checkoutID, message: "STK push sent to your phone" });
   } catch (err) {
-    console.error("❌ IntaSend STK Push Error:", err.message || err);
+    console.error("❌ Ticket Payment Error:", err.message || err);
     res.status(500).json({ error: err.message || "Payment initiation failed" });
   }
 });
 
-// 3. IntaSend Webhook / Callback Endpoint (Fired when payment is complete)
+// ----------------------------------------------------
+// 2. STORE MERCH ROUTE (Matches your database schema)
+// ----------------------------------------------------
+app.post("/api/buy-merch", async (req, res) => {
+  const { fullName, phone, email, amount, cart } = req.body;
+
+  if (!phone || !amount || !cart || cart.length === 0) {
+    return res.status(400).json({ error: "Missing required checkout parameters." });
+  }
+
+  const formattedPhone = formatPhoneNumber(phone);
+  console.log(`📡 Initiating Merch STK Push for ${formattedPhone}... Amount: KES ${amount}`);
+
+  try {
+    let collection = intasend.collection();
+    const response = await collection.mpesaStkPush({
+      first_name: fullName || "Merch Customer",
+      last_name: "User",
+      email: email || "customer@wakolosai.com",
+      amount: Number(amount),
+      phone_number: formattedPhone,
+      api_ref: `MERCH-${Date.now()}`,
+    });
+
+    const checkoutID = response.invoice?.invoice_id || response.id || response.api_ref;
+
+    // Payload mapped into your database columns: total_amount, payment_method, status, items
+    const orderPayload = {
+      total_amount: Number(amount),
+      payment_method: "M-PESA",
+      status: "pending",
+      items: {
+        checkout_id: checkoutID,
+        customer_name: fullName || "Customer",
+        email: email || null,
+        phone: formattedPhone,
+        cart_items: cart,
+      },
+    };
+
+    const { data: order, error: dbError } = await supabase
+      .from("merch_orders")
+      .insert([orderPayload])
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error("⚠️ Merch DB Insert Warning:", dbError.message);
+    } else {
+      console.log(`✅ Saved pending merch order #${order.id} [Checkout ID: ${checkoutID}]`);
+    }
+
+    res.json({ success: true, checkoutID, message: "STK push sent to your phone" });
+  } catch (err) {
+    console.error("❌ Merch STK Push Error:", err.message || err);
+    res.status(500).json({ error: err.message || "Failed to trigger M-Pesa push." });
+  }
+});
+
+// ----------------------------------------------------
+// 3. INTASEND WEBHOOK / CALLBACK (Processes both Tickets & Merch)
+// ----------------------------------------------------
 app.post("/api/callback", async (req, res) => {
   console.log("🔔 INCOMING CALLBACK RECEIVED FROM INTASEND!");
-  console.log("Payload:", JSON.stringify(req.body, null, 2));
 
   try {
     const { invoice_id, state, api_ref, challenge } = req.body;
 
-    // Support IntaSend challenge check if applicable
-    if (challenge) {
-      return res.json({ challenge });
-    }
+    if (challenge) return res.json({ challenge });
 
     const checkoutID = invoice_id || api_ref;
 
     if (state === "COMPLETE" || state === "SUCCESS" || req.body.status === "COMPLETE") {
       console.log(`🎉 IntaSend Payment Verified for Checkout ID: ${checkoutID}`);
 
-      // Search matching row by checkout_id
-      const { data: ticket, error: updateError } = await supabase
+      // 1. Check Merch Orders matching JSON items->>checkout_id
+      const { data: merchOrders } = await supabase
+        .from("merch_orders")
+        .select("*")
+        .eq("items->>checkout_id", checkoutID);
+
+      if (merchOrders && merchOrders.length > 0) {
+        const order = merchOrders[0];
+        
+        await supabase
+          .from("merch_orders")
+          .update({ status: "paid" })
+          .eq("id", order.id);
+
+        const customerEmail = order.items?.email;
+        if (customerEmail) {
+          await sendMerchReceiptEmail(customerEmail, {
+            orderId: order.id,
+            customerName: order.items?.customer_name,
+            amount: order.total_amount,
+            cart: order.items?.cart_items || [],
+          });
+        }
+        return res.json({ status: "ACK_MERCH" });
+      }
+
+      // 2. Check Event Tickets matching checkout_id
+      const { data: ticketOrder } = await supabase
         .from("tickets")
         .update({ status: "paid" })
         .eq("checkout_id", checkoutID)
         .select()
         .single();
 
-      if (updateError || !ticket) {
-        console.error("❌ Failed to update DB row or ticket not found:", updateError);
-        return res.status(500).send("Database record not found");
+      if (ticketOrder) {
+        console.log(`🎟️ Ticket payment verified for ${ticketOrder.email}`);
+        await sendTicketEmail(ticketOrder.email, {
+          ticketId: ticketOrder.id,
+          amount: ticketOrder.amount,
+          ticketType: ticketOrder.ticket_type,
+        });
+        return res.json({ status: "ACK_TICKET" });
       }
-
-      // Dispatch Ticket Email upon successful payment
-      await sendTicketEmail(ticket.email, {
-        ticketId: ticket.id,
-        amount: ticket.amount,
-        ticketType: ticket.ticket_type,
-      });
-
-      console.log(`✨ Ticket delivery complete for ${ticket.email}`);
-    } else {
-      console.warn(`⚠️ Payment state: ${state} for checkout: ${checkoutID}`);
-      await supabase
-        .from("tickets")
-        .update({ status: "failed" })
-        .eq("checkout_id", checkoutID);
     }
 
     res.json({ status: "ACK" });
@@ -239,8 +364,28 @@ app.post("/api/callback", async (req, res) => {
   }
 });
 
+// ----------------------------------------------------
+// 4. GET Endpoint for Ticket Tiers live count
+// ----------------------------------------------------
+app.get("/api/ticket-tiers", async (req, res) => {
+  try {
+    const { count } = await supabase
+      .from("tickets")
+      .select("*", { count: "exact", head: true })
+      .ilike("ticket_type", "%Early Bird%")
+      .neq("status", "failed");
+
+    res.json([
+      { id: "early-bird", name: "Early Bird", price: 800, tickets_sold: count || 0 },
+      { id: "advanced", name: "Advanced Ticket", price: 1000, tickets_sold: 0 },
+      { id: "gate", name: "At The Gate", price: 1200, tickets_sold: 0 },
+    ]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌐 Base URL set to: ${BASE_URL}`);
 });
