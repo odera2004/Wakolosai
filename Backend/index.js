@@ -58,7 +58,7 @@ const sendTicketEmail = async (email, ticketDetails) => {
   try {
     console.log(`⏳ Generating QR Code attachment for ${email}...`);
     const qrBuffer = await generateQRCodeBuffer(String(ticketDetails.ticketId));
-    const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Events <onboarding@resend.dev>";
+    const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Events <tickets@wakolosai.xyz>";
 
     const { data, error } = await resend.emails.send({
       from: senderEmail,
