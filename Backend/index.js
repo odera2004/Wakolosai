@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Guard: Check missing required environment variables
+// Guard: Early environment variable check
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
   console.error("❌ CRITICAL ERROR: SUPABASE_URL or SUPABASE_ANON_KEY is missing!");
   process.exit(1);
@@ -20,11 +20,16 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Base URLs
-const BASE_URL = process.env.BACKEND_URL || (process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : "https://wakolosai.onrender.com");
-const FRONTEND_URL = process.env.FRONTEND_URL || "https://wakolosai.xyz";
+const intasend = new IntaSend(
+  process.env.INTASEND_PUBLISHABLE_KEY,
+  process.env.INTASEND_SECRET_KEY,
+  process.env.INTASEND_TEST_MODE === "true" // set to false for production
+);
 
-// Helper: Format Phone Numbers strictly to 254XXXXXXXXX (Prevents Safaricom routing errors)
+// Base URL detection
+const BASE_URL = process.env.BACKEND_URL || (process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : "https://wakolosai.onrender.com");
+
+// Helper: Format Phone Numbers to 254XXXXXXXXX
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
   let cleaned = phone.toString().trim().replace(/\D/g, "");
@@ -32,8 +37,6 @@ const formatPhoneNumber = (phone) => {
     return "254" + cleaned.substring(1);
   } else if (cleaned.startsWith("7") || cleaned.startsWith("1")) {
     return "254" + cleaned;
-  } else if (cleaned.startsWith("254")) {
-    return cleaned;
   }
   return cleaned;
 };
@@ -102,45 +105,34 @@ app.post("/api/test-email", async (req, res) => {
   }
 });
 
-// 2. Direct In-App M-Pesa STK Push Endpoint
+// 2. IntaSend M-Pesa STK Push Payment Initiation
 app.post("/api/buy-ticket", async (req, res) => {
-  const { phone, email, amount, ticketType } = req.body;
+  const { phone, email, amount, ticketType, name } = req.body;
 
-  if (!email || !amount || !phone) {
+  if (!phone || !email || !amount) {
     return res.status(400).json({ error: "Missing required fields: phone, email, amount" });
   }
 
   const formattedPhone = formatPhoneNumber(phone);
-
-  if (!formattedPhone || formattedPhone.length !== 12 || !formattedPhone.startsWith("254")) {
-    return res.status(400).json({ error: "Invalid M-Pesa phone number. Format should be 07... or 2547..." });
-  }
-
-  console.log(`📡 Triggering Direct M-Pesa STK Push for ${formattedPhone} (${email})...`);
+  console.log(`📡 Initiating IntaSend STK Push for ${formattedPhone}...`);
 
   try {
-    // ✅ Instantiate Mpesa class directly from IntaSend SDK
-    const mpesa = new IntaSend.Mpesa(
-      process.env.INTASEND_PUBLISHABLE_KEY,
-      process.env.INTASEND_SECRET_KEY,
-      process.env.INTASEND_TEST_MODE === "true"
-    );
-
-    // Direct STK Push call
-    const response = await mpesa.stkPush({
-      phone_number: formattedPhone,
+    let collection = intasend.collection();
+    const response = await collection.mpesaStkPush({
+      first_name: name || "Customer",
+      last_name: "User",
       email: email,
       amount: Number(amount),
+      phone_number: formattedPhone,
       api_ref: `WAKOLOSAI-${Date.now()}`,
-      comment: ticketType || "Ticket Purchase",
     });
 
-    console.log("📲 M-Pesa STK Push Sent:", JSON.stringify(response, null, 2));
+    console.log("📲 IntaSend Response:", JSON.stringify(response, null, 2));
 
     const checkoutID = response.invoice?.invoice_id || response.id || response.api_ref;
 
     // Save initial record as 'pending' in Supabase DB
-    const { error: dbError } = await supabase
+    const { data: ticket, error: dbError } = await supabase
       .from("tickets")
       .insert([
         {
@@ -151,18 +143,17 @@ app.post("/api/buy-ticket", async (req, res) => {
           ticket_type: ticketType || "Standard",
           status: "pending",
         },
-      ]);
+      ])
+      .select()
+      .single();
 
-    if (dbError) console.error("⚠️ DB Insert Error:", dbError.message);
+    if (dbError) throw dbError;
 
-    res.json({
-      success: true,
-      message: "STK Push sent to phone!",
-      checkoutID,
-    });
+    console.log(`✅ Saved pending ticket in DB for checkoutID: ${checkoutID}`);
+    res.json({ success: true, checkoutID, message: "STK push sent to your phone" });
   } catch (err) {
-    console.error("❌ STK Push Error:", err.message || err);
-    res.status(500).json({ error: err.message || "Failed to trigger M-Pesa STK Push" });
+    console.error("❌ IntaSend STK Push Error:", err.message || err);
+    res.status(500).json({ error: err.message || "Payment initiation failed" });
   }
 });
 
@@ -172,20 +163,19 @@ app.post("/api/callback", async (req, res) => {
   console.log("Payload:", JSON.stringify(req.body, null, 2));
 
   try {
-    const { invoice_id, state, api_ref, challenge, status } = req.body;
+    const { invoice_id, state, api_ref, value, challenge } = req.body;
 
-    // Support IntaSend security challenge check
+    // Support IntaSend challenge check if applicable
     if (challenge) {
       return res.json({ challenge });
     }
 
-    const checkoutID = invoice_id || api_ref || req.body.id;
-    const paymentState = state || status;
+    const checkoutID = invoice_id || api_ref;
 
-    if (paymentState === "COMPLETE" || paymentState === "SUCCESS") {
+    if (state === "COMPLETE" || state === "SUCCESS" || req.body.status === "COMPLETE") {
       console.log(`🎉 IntaSend Payment Verified for Checkout ID: ${checkoutID}`);
 
-      // Search matching row by checkout_id
+      // Search matching row by invoice_id OR checkout_id
       const { data: ticket, error: updateError } = await supabase
         .from("tickets")
         .update({ status: "paid" })
@@ -198,15 +188,15 @@ app.post("/api/callback", async (req, res) => {
         return res.status(500).send("Database record not found");
       }
 
-      // Dispatch Ticket Email with QR code
+      // Dispatch Ticket Email
       await sendTicketEmail(ticket.email, {
         ticketId: ticket.id,
         amount: ticket.amount,
       });
 
-      console.log(`✨ Ticket delivery complete for ${ticket.email}`);
-    } else if (paymentState === "FAILED" || paymentState === "CANCELLED") {
-      console.warn(`⚠️ Payment marked ${paymentState} for checkout: ${checkoutID}`);
+      console.log(`✨ Ticket process complete for ${ticket.email}`);
+    } else {
+      console.warn(`⚠️ Payment state: ${state} for checkout: ${checkoutID}`);
       await supabase
         .from("tickets")
         .update({ status: "failed" })
@@ -225,3 +215,4 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌐 Base URL set to: ${BASE_URL}`);
 });
+  update the code,,
