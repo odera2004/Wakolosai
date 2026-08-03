@@ -20,6 +20,15 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// ✅ Correct IntaSend SDK Initialization
+const isTestMode = process.env.INTASEND_TEST_MODE === "true";
+const intasend = new IntaSend(
+  process.env.INTASEND_PUBLISHABLE_KEY,
+  process.env.INTASEND_SECRET_KEY,
+  isTestMode
+);
+const mpesa = intasend.Mpesa();
+
 // Base URLs
 const BASE_URL = process.env.BACKEND_URL || (process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : "https://wakolosai.onrender.com");
 
@@ -45,29 +54,35 @@ const generateQRCode = async (text) => {
   }
 };
 
-// Helper: Send Ticket Email via Resend API
-const sendTicketEmail = async (email, ticketDetails) => {
+// Helper: Send Ticket / Purchase Email via Resend API
+const sendTicketEmail = async (email, details) => {
   try {
     console.log(`⏳ Generating QR Code for ${email}...`);
-    const qrCodeUrl = await generateQRCode(ticketDetails.ticketId);
+    const referenceId = details.ticketId || details.orderId || "WAKOLOSAI-ORDER";
+    const qrCodeUrl = await generateQRCode(String(referenceId));
+    
+    // Note: If using onboarding@resend.dev, Resend will ONLY deliver emails to your account email!
     const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Events <onboarding@resend.dev>";
 
     console.log(`📡 Sending email via Resend API to ${email}...`);
     const { data, error } = await resend.emails.send({
       from: senderEmail,
       to: [email],
-      subject: `Your Wakolosai Ticket [${ticketDetails.ticketId}]`,
+      subject: `Your Wakolosai Confirmation [${referenceId}]`,
       html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-          <h2>🎟️ Payment Confirmed! Here is your ticket for Wakolosai.</h2>
-          <p><strong>Ticket ID:</strong> ${ticketDetails.ticketId}</p>
-          <p><strong>Event:</strong> Wakolosai Live</p>
-          <p><strong>Amount Paid:</strong> KES ${ticketDetails.amount}</p>
-          <hr />
-          <p>Present this QR code at the entrance:</p>
-          <img src="${qrCodeUrl}" alt="Ticket QR Code" style="width: 200px; height: 200px;" />
-          <hr />
-          <p style="font-size: 12px; color: #777;">Sent via Wakolosai Platform</p>
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 8px;">
+          <h2 style="color: #FFB800;">🎟️ Payment Confirmed!</h2>
+          <p>Thank you for your purchase with Wakolosai.</p>
+          <p><strong>Order/Ticket ID:</strong> ${referenceId}</p>
+          <p><strong>Item:</strong> ${details.item || 'Wakolosai Live Ticket'}</p>
+          <p><strong>Amount Paid:</strong> KES ${details.amount}</p>
+          <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;" />
+          <p>Present this QR code at entry or collection:</p>
+          <div style="text-align: center; margin: 20px 0;">
+            <img src="${qrCodeUrl}" alt="Order QR Code" style="width: 200px; height: 200px;" />
+          </div>
+          <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;" />
+          <p style="font-size: 12px; color: #777; text-align: center;">Sent via Wakolosai Platform</p>
         </div>
       `,
     });
@@ -85,6 +100,10 @@ const sendTicketEmail = async (email, ticketDetails) => {
   }
 };
 
+// -------------------------------------------------------------
+// ROUTES
+// -------------------------------------------------------------
+
 // 1. Direct Email Test Endpoint
 app.post("/api/test-email", async (req, res) => {
   const { email } = req.body;
@@ -92,14 +111,14 @@ app.post("/api/test-email", async (req, res) => {
 
   try {
     console.log(`🧪 Testing email dispatch to: ${email}`);
-    await sendTicketEmail(email, { ticketId: "TEST-TICKET-12345", amount: "100" });
+    await sendTicketEmail(email, { ticketId: "TEST-TICKET-12345", amount: "100", item: "Test Item" });
     res.json({ message: `✅ Test email successfully sent to ${email}` });
   } catch (error) {
     res.status(500).json({ error: "Failed to send email", details: error.message });
   }
 });
 
-// 2. IntaSend M-Pesa STK Push Payment Initiation
+// 2. Buy Ticket (M-Pesa STK Push)
 app.post("/api/buy-ticket", async (req, res) => {
   const { phone, email, amount, ticketType, name } = req.body;
 
@@ -108,21 +127,14 @@ app.post("/api/buy-ticket", async (req, res) => {
   }
 
   const formattedPhone = formatPhoneNumber(phone);
-  console.log(`📡 Initiating IntaSend STK Push for ${formattedPhone}...`);
+  console.log(`📡 Initiating Ticket STK Push for ${formattedPhone}...`);
 
   try {
-    // ✅ Instantiate Mpesa class directly from IntaSend SDK
-    const mpesa = new IntaSend.Mpesa(
-      process.env.INTASEND_PUBLISHABLE_KEY,
-      process.env.INTASEND_SECRET_KEY,
-      process.env.INTASEND_TEST_MODE === "true"
-    );
-
     const response = await mpesa.stkPush({
       phone_number: formattedPhone,
       email: email,
       amount: Number(amount),
-      api_ref: `WAKOLOSAI-${Date.now()}`,
+      api_ref: `TICKET-${Date.now()}`,
       comment: ticketType || "Ticket Purchase",
     });
 
@@ -130,7 +142,7 @@ app.post("/api/buy-ticket", async (req, res) => {
 
     const checkoutID = response.invoice?.invoice_id || response.id || response.api_ref;
 
-    // Save initial record as 'pending' in Supabase DB
+    // Save initial record in Supabase DB
     const { error: dbError } = await supabase
       .from("tickets")
       .insert([
@@ -149,12 +161,60 @@ app.post("/api/buy-ticket", async (req, res) => {
     console.log(`✅ Saved pending ticket in DB for checkoutID: ${checkoutID}`);
     res.json({ success: true, checkoutID, message: "STK push sent to your phone" });
   } catch (err) {
-    console.error("❌ IntaSend STK Push Error:", err.message || err);
+    console.error("❌ Ticket STK Push Error:", err.message || err);
     res.status(500).json({ error: err.message || "Payment initiation failed" });
   }
 });
 
-// 3. IntaSend Webhook / Callback Endpoint
+// 3. Buy Merch (M-Pesa STK Push)
+app.post("/api/buy-merch", async (req, res) => {
+  const { phone, email, amount, cart, fullName } = req.body;
+
+  if (!phone || !email || !amount) {
+    return res.status(400).json({ error: "Missing required fields: phone, email, amount" });
+  }
+
+  const formattedPhone = formatPhoneNumber(phone);
+  console.log(`📡 Initiating Merch STK Push for ${formattedPhone}...`);
+
+  try {
+    const response = await mpesa.stkPush({
+      phone_number: formattedPhone,
+      email: email,
+      amount: Number(amount),
+      api_ref: `MERCH-${Date.now()}`,
+      comment: "Wakolosai Merch Purchase",
+    });
+
+    console.log("📲 IntaSend Merch Response:", JSON.stringify(response, null, 2));
+
+    const checkoutID = response.invoice?.invoice_id || response.id || response.api_ref;
+
+    // Optional: Save to 'merch_orders' or fallback to 'tickets' table depending on your DB schema
+    const { error: dbError } = await supabase
+      .from("tickets")
+      .insert([
+        {
+          checkout_id: checkoutID,
+          email,
+          phone: formattedPhone,
+          amount,
+          ticket_type: "Merch Order",
+          status: "pending",
+        },
+      ]);
+
+    if (dbError) console.error("⚠️ DB Insert Warning:", dbError.message);
+
+    console.log(`✅ Saved pending merch order for checkoutID: ${checkoutID}`);
+    res.json({ success: true, checkoutID, message: "STK push sent to your phone" });
+  } catch (err) {
+    console.error("❌ Merch STK Push Error:", err.message || err);
+    res.status(500).json({ error: err.message || "Payment initiation failed" });
+  }
+});
+
+// 4. IntaSend Webhook / Callback Endpoint
 app.post("/api/callback", async (req, res) => {
   console.log("🔔 INCOMING CALLBACK RECEIVED FROM INTASEND!");
   console.log("Payload:", JSON.stringify(req.body, null, 2));
@@ -162,6 +222,7 @@ app.post("/api/callback", async (req, res) => {
   try {
     const { invoice_id, state, api_ref, challenge, status } = req.body;
 
+    // Handle initial webhook setup verification challenge from IntaSend
     if (challenge) {
       return res.json({ challenge });
     }
@@ -172,6 +233,7 @@ app.post("/api/callback", async (req, res) => {
     if (paymentState === "COMPLETE" || paymentState === "SUCCESS") {
       console.log(`🎉 IntaSend Payment Verified for Checkout ID: ${checkoutID}`);
 
+      // Update Database status
       const { data: ticket, error: updateError } = await supabase
         .from("tickets")
         .update({ status: "paid" })
@@ -180,16 +242,21 @@ app.post("/api/callback", async (req, res) => {
         .single();
 
       if (updateError || !ticket) {
-        console.error("❌ Failed to update DB row:", updateError);
-        return res.status(500).send("Database record not found");
+        console.error("❌ DB Record Update Warning:", updateError?.message || "Record not found");
       }
 
-      await sendTicketEmail(ticket.email, {
-        ticketId: ticket.id,
-        amount: ticket.amount,
-      });
+      // Trigger Email Notification
+      const targetEmail = ticket ? ticket.email : req.body.email;
+      const targetAmount = ticket ? ticket.amount : req.body.amount;
 
-      console.log(`✨ Ticket process complete for ${ticket.email}`);
+      if (targetEmail) {
+        await sendTicketEmail(targetEmail, {
+          ticketId: checkoutID,
+          amount: targetAmount || "Paid",
+          item: ticket?.ticket_type || "Wakolosai Order",
+        });
+        console.log(`✨ Confirmation email sent for ${targetEmail}`);
+      }
     } else {
       console.warn(`⚠️ Payment state: ${paymentState} for checkout: ${checkoutID}`);
       await supabase
