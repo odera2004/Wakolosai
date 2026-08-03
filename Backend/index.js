@@ -23,7 +23,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const intasend = new IntaSend(
   process.env.INTASEND_PUBLISHABLE_KEY,
   process.env.INTASEND_SECRET_KEY,
-  process.env.INTASEND_TEST_MODE === "true" // set to false for production
+  process.env.INTASEND_TEST_MODE === "true" // Set to false for production
 );
 
 // Base URL detection
@@ -41,10 +41,18 @@ const formatPhoneNumber = (phone) => {
   return cleaned;
 };
 
-// Helper: Generate QR Code Data URL
-const generateQRCode = async (text) => {
+// Helper: Generate QR Code Buffer (Fixes email client inline base64 blocking)
+const generateQRCodeBuffer = async (text) => {
   try {
-    return await QRCode.toDataURL(text);
+    return await QRCode.toBuffer(text, {
+      type: "png",
+      margin: 2,
+      width: 250,
+      color: {
+        dark: "#000000",
+        light: "#FFFFFF",
+      },
+    });
   } catch (err) {
     console.error("❌ QR Code generation failed:", err);
     throw err;
@@ -54,28 +62,48 @@ const generateQRCode = async (text) => {
 // Helper: Send Ticket Email via Resend API
 const sendTicketEmail = async (email, ticketDetails) => {
   try {
-    console.log(`⏳ Generating QR Code for ${email}...`);
-    const qrCodeUrl = await generateQRCode(ticketDetails.ticketId);
+    console.log(`⏳ Generating QR Code attachment for ${email}...`);
+    const qrBuffer = await generateQRCodeBuffer(String(ticketDetails.ticketId));
+
+    // Uses your custom sender domain if defined, or falls back to standard dev sender
     const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Events <onboarding@resend.dev>";
 
-    console.log(`📡 Sending email via Resend API to ${email}...`);
+    console.log(`📡 Sending ticket email via Resend API to ${email}...`);
+
     const { data, error } = await resend.emails.send({
       from: senderEmail,
       to: [email],
       subject: `Your Wakolosai Ticket [${ticketDetails.ticketId}]`,
       html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-          <h2>🎟️ Payment Confirmed! Here is your ticket for Wakolosai.</h2>
-          <p><strong>Ticket ID:</strong> ${ticketDetails.ticketId}</p>
-          <p><strong>Event:</strong> Wakolosai Live</p>
-          <p><strong>Amount Paid:</strong> KES ${ticketDetails.amount}</p>
-          <hr />
-          <p>Present this QR code at the entrance:</p>
-          <img src="${qrCodeUrl}" alt="Ticket QR Code" style="width: 200px; height: 200px;" />
-          <hr />
-          <p style="font-size: 12px; color: #777;">Sent via Wakolosai Platform</p>
+        <div style="font-family: Arial, sans-serif; padding: 24px; color: #111; max-width: 500px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #ffffff;">
+          <h2 style="color: #d4a000; margin-top: 0; text-transform: uppercase;">🎟️ Payment Confirmed!</h2>
+          <p style="font-size: 14px; color: #444;">Here is your official pass for <strong>Wakolosai Live</strong>.</p>
+          
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+          
+          <p style="font-size: 14px; margin: 6px 0;"><strong>Ticket ID:</strong> <code style="background: #f4f4f4; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${ticketDetails.ticketId}</code></p>
+          <p style="font-size: 14px; margin: 6px 0;"><strong>Type / Details:</strong> ${ticketDetails.ticketType || "Standard Pass"}</p>
+          <p style="font-size: 14px; margin: 6px 0;"><strong>Amount Paid:</strong> KES ${Number(ticketDetails.amount).toLocaleString()}</p>
+          
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+          
+          <p style="font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 12px;">Scan QR Code at Entry:</p>
+          <div style="text-align: center; margin: 15px 0;">
+            <img src="cid:qrcode" alt="Ticket QR Code" style="width: 200px; height: 200px; display: inline-block;" />
+          </div>
+          
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+          <p style="font-size: 11px; color: #888; text-align: center; margin-bottom: 0;">Wakolosai Experience • Keep this email for gate entrance.</p>
         </div>
       `,
+      attachments: [
+        {
+          filename: "qrcode.png",
+          content: qrBuffer,
+          content_type: "image/png",
+          cid: "qrcode", // Linked directly to <img src="cid:qrcode" />
+        },
+      ],
     });
 
     if (error) {
@@ -98,7 +126,7 @@ app.post("/api/test-email", async (req, res) => {
 
   try {
     console.log(`🧪 Testing email dispatch to: ${email}`);
-    await sendTicketEmail(email, { ticketId: "TEST-TICKET-12345", amount: "100" });
+    await sendTicketEmail(email, { ticketId: "TEST-TICKET-12345", amount: "100", ticketType: "Test Pass" });
     res.json({ message: `✅ Test email successfully sent to ${email}` });
   } catch (error) {
     res.status(500).json({ error: "Failed to send email", details: error.message });
@@ -157,13 +185,13 @@ app.post("/api/buy-ticket", async (req, res) => {
   }
 });
 
-// 3. IntaSend Webhook / Callback Endpoint
+// 3. IntaSend Webhook / Callback Endpoint (Fired when payment is complete)
 app.post("/api/callback", async (req, res) => {
   console.log("🔔 INCOMING CALLBACK RECEIVED FROM INTASEND!");
   console.log("Payload:", JSON.stringify(req.body, null, 2));
 
   try {
-    const { invoice_id, state, api_ref, value, challenge } = req.body;
+    const { invoice_id, state, api_ref, challenge } = req.body;
 
     // Support IntaSend challenge check if applicable
     if (challenge) {
@@ -175,7 +203,7 @@ app.post("/api/callback", async (req, res) => {
     if (state === "COMPLETE" || state === "SUCCESS" || req.body.status === "COMPLETE") {
       console.log(`🎉 IntaSend Payment Verified for Checkout ID: ${checkoutID}`);
 
-      // Search matching row by invoice_id OR checkout_id
+      // Search matching row by checkout_id
       const { data: ticket, error: updateError } = await supabase
         .from("tickets")
         .update({ status: "paid" })
@@ -184,17 +212,18 @@ app.post("/api/callback", async (req, res) => {
         .single();
 
       if (updateError || !ticket) {
-        console.error("❌ Failed to update DB row:", updateError);
+        console.error("❌ Failed to update DB row or ticket not found:", updateError);
         return res.status(500).send("Database record not found");
       }
 
-      // Dispatch Ticket Email
+      // Dispatch Ticket Email upon successful payment
       await sendTicketEmail(ticket.email, {
         ticketId: ticket.id,
         amount: ticket.amount,
+        ticketType: ticket.ticket_type,
       });
 
-      console.log(`✨ Ticket process complete for ${ticket.email}`);
+      console.log(`✨ Ticket delivery complete for ${ticket.email}`);
     } else {
       console.warn(`⚠️ Payment state: ${state} for checkout: ${checkoutID}`);
       await supabase
