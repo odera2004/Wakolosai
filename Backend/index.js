@@ -58,11 +58,11 @@ const sendTicketEmail = async (email, ticketDetails) => {
   try {
     console.log(`⏳ Generating QR Code attachment for ${email}...`);
     const qrBuffer = await generateQRCodeBuffer(String(ticketDetails.ticketId));
-    
-    // Uses your verified domain wakolosai.xyz by default
-    const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Events <tickets@wakolosai.xyz>";
 
-    console.log(`📧 Sending ticket email via Resend [From: ${senderEmail} -> To: ${email}]`);
+    // Fallback to onboarding@resend.dev if custom domain is not set up / verified
+    const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Events <onboarding@resend.dev>";
+
+    console.log(`📧 Dispatching Resend Email: [From: ${senderEmail} -> To: ${email}]`);
 
     const { data, error } = await resend.emails.send({
       from: senderEmail,
@@ -96,11 +96,11 @@ const sendTicketEmail = async (email, ticketDetails) => {
     });
 
     if (error) {
-      console.error("❌ Resend API Returned Error:", error);
+      console.error("❌ RESEND API ERROR:", JSON.stringify(error, null, 2));
       throw error;
     }
 
-    console.log(`📧 SUCCESS: Ticket email delivered to ${email}. Resend ID: ${data?.id}`);
+    console.log(`🚀 SUCCESS! Ticket email delivered to ${email}. Resend ID: ${data?.id}`);
     return data;
   } catch (err) {
     console.error("❌ Email dispatch failed:", err.message || err);
@@ -112,7 +112,7 @@ const sendTicketEmail = async (email, ticketDetails) => {
 const sendMerchReceiptEmail = async (email, orderDetails) => {
   try {
     console.log(`📡 Sending merch receipt email to ${email}...`);
-    const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Store <tickets@wakolosai.xyz>";
+    const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Store <onboarding@resend.dev>";
 
     const itemsTableRows = (orderDetails.cart || [])
       .map(
@@ -170,7 +170,7 @@ const sendMerchReceiptEmail = async (email, orderDetails) => {
 };
 
 // ----------------------------------------------------
-// 1. EVENT TICKETS ROUTE (Includes 20 Early-Bird Limit)
+// 1. EVENT TICKETS ROUTE
 // ----------------------------------------------------
 app.post("/api/buy-ticket", async (req, res) => {
   const { phone, email, amount, ticketType, tierBreakdown, isSupport } = req.body;
@@ -179,32 +179,9 @@ app.post("/api/buy-ticket", async (req, res) => {
     return res.status(400).json({ error: "Missing required fields: phone, email, amount" });
   }
 
-  // Cap check
-  const earlyBirdQtyRequested = tierBreakdown ? Number(tierBreakdown["early-bird"] || 0) : 0;
-
-  if (earlyBirdQtyRequested > 0 && !isSupport) {
-    try {
-      const { count, error: countError } = await supabase
-        .from("tickets")
-        .select("*", { count: "exact", head: true })
-        .ilike("ticket_type", "%Early Bird%")
-        .neq("status", "failed");
-
-      if (countError) console.error("⚠️ Cap check error:", countError.message);
-
-      const soldCount = count || 0;
-      if (soldCount + earlyBirdQtyRequested > 20) {
-        return res.status(400).json({
-          error: `Sorry! Early Bird tickets are SOLD OUT. Only ${Math.max(0, 20 - soldCount)} left.`,
-        });
-      }
-    } catch (capErr) {
-      console.error("❌ Early Bird limit check failed:", capErr.message);
-    }
-  }
-
   const formattedPhone = formatPhoneNumber(phone);
-  console.log(`📡 Initiating Ticket STK Push for ${formattedPhone}...`);
+  const apiRef = `WAKOLOSAI-${Date.now()}`;
+  console.log(`📡 Initiating Ticket STK Push for ${formattedPhone} with Ref: ${apiRef}...`);
 
   try {
     let collection = intasend.collection();
@@ -214,17 +191,18 @@ app.post("/api/buy-ticket", async (req, res) => {
       email: email,
       amount: Number(amount),
       phone_number: formattedPhone,
-      api_ref: `WAKOLOSAI-${Date.now()}`,
+      api_ref: apiRef,
     });
 
-    const checkoutID = response.invoice?.invoice_id || response.id || response.api_ref;
+    const checkoutID = response.invoice?.invoice_id || response.id || apiRef;
 
-    // Save pending ticket to Supabase
+    // Save ticket to Supabase with BOTH checkout_id and api_ref saved for fail-safe matching
     const { data: ticket, error: dbError } = await supabase
       .from("tickets")
       .insert([
         {
           checkout_id: String(checkoutID),
+          api_ref: apiRef,
           email,
           phone: formattedPhone,
           amount,
@@ -237,8 +215,8 @@ app.post("/api/buy-ticket", async (req, res) => {
 
     if (dbError) throw dbError;
 
-    console.log(`📌 Ticket recorded in DB (ID: ${ticket.id}) with checkout_id: ${checkoutID}`);
-    res.json({ success: true, checkoutID, message: "STK push sent to your phone" });
+    console.log(`📌 Ticket recorded in DB (ID: ${ticket.id}) | checkout_id: ${checkoutID} | api_ref: ${apiRef}`);
+    res.json({ success: true, checkoutID, apiRef, message: "STK push sent to your phone" });
   } catch (err) {
     console.error("❌ Ticket Payment Error:", err.message || err);
     res.status(500).json({ error: err.message || "Payment initiation failed" });
@@ -246,7 +224,7 @@ app.post("/api/buy-ticket", async (req, res) => {
 });
 
 // ----------------------------------------------------
-// 2. STORE MERCH ROUTE (Fixed root checkout_id column)
+// 2. STORE MERCH ROUTE
 // ----------------------------------------------------
 app.post("/api/buy-merch", async (req, res) => {
   const { fullName, phone, email, amount, cart } = req.body;
@@ -256,6 +234,7 @@ app.post("/api/buy-merch", async (req, res) => {
   }
 
   const formattedPhone = formatPhoneNumber(phone);
+  const apiRef = `MERCH-${Date.now()}`;
   console.log(`📡 Initiating Merch STK Push for ${formattedPhone}... Amount: KES ${amount}`);
 
   try {
@@ -266,14 +245,14 @@ app.post("/api/buy-merch", async (req, res) => {
       email: email || "customer@wakolosai.com",
       amount: Number(amount),
       phone_number: formattedPhone,
-      api_ref: `MERCH-${Date.now()}`,
+      api_ref: apiRef,
     });
 
-    const checkoutID = response.invoice?.invoice_id || response.id || response.api_ref;
+    const checkoutID = response.invoice?.invoice_id || response.id || apiRef;
 
-    // Fixed: Explicit top-level checkout_id satisfies NOT-NULL DB constraints
     const orderPayload = {
       checkout_id: String(checkoutID),
+      api_ref: apiRef,
       total_amount: Number(amount),
       payment_method: "M-PESA",
       status: "pending",
@@ -306,7 +285,7 @@ app.post("/api/buy-merch", async (req, res) => {
 });
 
 // ----------------------------------------------------
-// 3. INTASEND WEBHOOK / CALLBACK (Bulletproof Ticket & Merch Dispatch)
+// 3. INTASEND WEBHOOK / CALLBACK (Bulletproof Matcher)
 // ----------------------------------------------------
 app.post("/api/callback", async (req, res) => {
   console.log("🔔 INCOMING CALLBACK PAYLOAD:", JSON.stringify(req.body, null, 2));
@@ -315,11 +294,9 @@ app.post("/api/callback", async (req, res) => {
     const { challenge } = req.body;
     if (challenge) return res.json({ challenge });
 
-    // IntaSend can supply checkout IDs under invoice_id OR api_ref
-    const invoiceId = req.body.invoice_id || req.body.invoice?.invoice_id;
-    const apiRef = req.body.api_ref || req.body.invoice?.api_ref;
+    const invoiceId = req.body.invoice_id || req.body.invoice?.invoice_id || "";
+    const apiRef = req.body.api_ref || req.body.invoice?.api_ref || "";
 
-    // Normalize raw state/status field
     const rawState = req.body.state || req.body.status || req.body.invoice?.state || "";
     const paymentStatus = rawState.toString().toUpperCase();
 
@@ -328,17 +305,20 @@ app.post("/api/callback", async (req, res) => {
     if (["COMPLETE", "COMPLETED", "SUCCESS", "PAID"].includes(paymentStatus)) {
       
       // --- STEP 1: CHECK TICKETS TABLE ---
-      let { data: ticketOrders, error: ticketErr } = await supabase
-        .from("tickets")
-        .select("*")
-        .or(`checkout_id.eq.${invoiceId},checkout_id.eq.${apiRef}`);
+      // Query using multiple separate attempts to eliminate Postgrest OR syntax bugs
+      let ticket = null;
 
-      if (ticketErr) {
-        console.error("❌ Supabase Ticket Lookup Error:", ticketErr.message);
+      if (invoiceId) {
+        const { data } = await supabase.from("tickets").select("*").eq("checkout_id", invoiceId).maybeSingle();
+        ticket = data;
       }
 
-      if (ticketOrders && ticketOrders.length > 0) {
-        const ticket = ticketOrders[0];
+      if (!ticket && apiRef) {
+        const { data } = await supabase.from("tickets").select("*").eq("api_ref", apiRef).maybeSingle();
+        ticket = data;
+      }
+
+      if (ticket) {
         console.log(`🎟️ TICKET MATCH FOUND! Row ID: ${ticket.id} | Email: ${ticket.email}`);
 
         // Update database to paid
@@ -363,13 +343,19 @@ app.post("/api/callback", async (req, res) => {
       }
 
       // --- STEP 2: CHECK MERCH ORDERS TABLE ---
-      let { data: merchOrders, error: merchErr } = await supabase
-        .from("merch_orders")
-        .select("*")
-        .or(`checkout_id.eq.${invoiceId},checkout_id.eq.${apiRef}`);
+      let order = null;
 
-      if (merchOrders && merchOrders.length > 0) {
-        const order = merchOrders[0];
+      if (invoiceId) {
+        const { data } = await supabase.from("merch_orders").select("*").eq("checkout_id", invoiceId).maybeSingle();
+        order = data;
+      }
+
+      if (!order && apiRef) {
+        const { data } = await supabase.from("merch_orders").select("*").eq("api_ref", apiRef).maybeSingle();
+        order = data;
+      }
+
+      if (order) {
         console.log(`🛍️ MERCH MATCH FOUND! Row ID: ${order.id}`);
 
         await supabase
@@ -394,7 +380,7 @@ app.post("/api/callback", async (req, res) => {
         return res.json({ status: "ACK_MERCH" });
       }
 
-      console.warn(`⚠️ Payment marked ${paymentStatus}, but no record matched "${invoiceId}" or "${apiRef}" in Supabase.`);
+      console.warn(`⚠️ Payment marked ${paymentStatus}, but no record matched invoice_id "${invoiceId}" or api_ref "${apiRef}" in Supabase.`);
     } else {
       console.warn(`⚠️ Callback ignored: Payment status is "${paymentStatus}".`);
     }
