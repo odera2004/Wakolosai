@@ -58,7 +58,11 @@ const sendTicketEmail = async (email, ticketDetails) => {
   try {
     console.log(`⏳ Generating QR Code attachment for ${email}...`);
     const qrBuffer = await generateQRCodeBuffer(String(ticketDetails.ticketId));
+    
+    // Uses your verified domain wakolosai.xyz by default
     const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Events <tickets@wakolosai.xyz>";
+
+    console.log(`📧 Sending ticket email via Resend [From: ${senderEmail} -> To: ${email}]`);
 
     const { data, error } = await resend.emails.send({
       from: senderEmail,
@@ -91,11 +95,15 @@ const sendTicketEmail = async (email, ticketDetails) => {
       ],
     });
 
-    if (error) throw error;
-    console.log(`📧 SUCCESS: Ticket email delivered to ${email}. ID: ${data?.id}`);
+    if (error) {
+      console.error("❌ Resend API Returned Error:", error);
+      throw error;
+    }
+
+    console.log(`📧 SUCCESS: Ticket email delivered to ${email}. Resend ID: ${data?.id}`);
     return data;
   } catch (err) {
-    console.error("❌ Email dispatch failed:", err.message);
+    console.error("❌ Email dispatch failed:", err.message || err);
     throw err;
   }
 };
@@ -104,7 +112,7 @@ const sendTicketEmail = async (email, ticketDetails) => {
 const sendMerchReceiptEmail = async (email, orderDetails) => {
   try {
     console.log(`📡 Sending merch receipt email to ${email}...`);
-    const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Store <onboarding@resend.dev>";
+    const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Store <tickets@wakolosai.xyz>";
 
     const itemsTableRows = (orderDetails.cart || [])
       .map(
@@ -112,10 +120,10 @@ const sendMerchReceiptEmail = async (email, orderDetails) => {
         <tr>
           <td style="padding: 8px 0; border-bottom: 1px solid #eee;">
             <strong>${item.name}</strong><br/>
-            <span style="font-size: 11px; color: #666;">Size: ${item.size} | Qty: ${item.quantity}</span>
+            <span style="font-size: 11px; color: #666;">Size: ${item.size || 'N/A'} | Qty: ${item.quantity || 1}</span>
           </td>
           <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">
-            KES ${(item.price * item.quantity).toLocaleString()}
+            KES ${((item.price || 0) * (item.quantity || 1)).toLocaleString()}
           </td>
         </tr>
       `
@@ -171,12 +179,11 @@ app.post("/api/buy-ticket", async (req, res) => {
     return res.status(400).json({ error: "Missing required fields: phone, email, amount" });
   }
 
-  // --- HARD LIMIT CAP CHECK (20 Tickets max for Early Bird) ---
+  // Cap check
   const earlyBirdQtyRequested = tierBreakdown ? Number(tierBreakdown["early-bird"] || 0) : 0;
 
   if (earlyBirdQtyRequested > 0 && !isSupport) {
     try {
-      // Query database for total Early Bird tickets already reserved/paid
       const { count, error: countError } = await supabase
         .from("tickets")
         .select("*", { count: "exact", head: true })
@@ -188,7 +195,7 @@ app.post("/api/buy-ticket", async (req, res) => {
       const soldCount = count || 0;
       if (soldCount + earlyBirdQtyRequested > 20) {
         return res.status(400).json({
-          error: `Sorry! Early Bird tickets (KES 800) are SOLD OUT. Only ${Math.max(0, 20 - soldCount)} left. Please select Advanced or Gate passes.`,
+          error: `Sorry! Early Bird tickets are SOLD OUT. Only ${Math.max(0, 20 - soldCount)} left.`,
         });
       }
     } catch (capErr) {
@@ -217,7 +224,7 @@ app.post("/api/buy-ticket", async (req, res) => {
       .from("tickets")
       .insert([
         {
-          checkout_id: checkoutID,
+          checkout_id: String(checkoutID),
           email,
           phone: formattedPhone,
           amount,
@@ -230,6 +237,7 @@ app.post("/api/buy-ticket", async (req, res) => {
 
     if (dbError) throw dbError;
 
+    console.log(`📌 Ticket recorded in DB (ID: ${ticket.id}) with checkout_id: ${checkoutID}`);
     res.json({ success: true, checkoutID, message: "STK push sent to your phone" });
   } catch (err) {
     console.error("❌ Ticket Payment Error:", err.message || err);
@@ -238,7 +246,7 @@ app.post("/api/buy-ticket", async (req, res) => {
 });
 
 // ----------------------------------------------------
-// 2. STORE MERCH ROUTE (Matches your database schema)
+// 2. STORE MERCH ROUTE (Fixed root checkout_id column)
 // ----------------------------------------------------
 app.post("/api/buy-merch", async (req, res) => {
   const { fullName, phone, email, amount, cart } = req.body;
@@ -263,8 +271,9 @@ app.post("/api/buy-merch", async (req, res) => {
 
     const checkoutID = response.invoice?.invoice_id || response.id || response.api_ref;
 
-    // Payload mapped into your database columns: total_amount, payment_method, status, items
+    // Fixed: Explicit top-level checkout_id satisfies NOT-NULL DB constraints
     const orderPayload = {
+      checkout_id: String(checkoutID),
       total_amount: Number(amount),
       payment_method: "M-PESA",
       status: "pending",
@@ -284,7 +293,7 @@ app.post("/api/buy-merch", async (req, res) => {
       .single();
 
     if (dbError) {
-      console.error("⚠️ Merch DB Insert Warning:", dbError.message);
+      console.error("⚠️ Merch DB Insert Error:", dbError.message);
     } else {
       console.log(`✅ Saved pending merch order #${order.id} [Checkout ID: ${checkoutID}]`);
     }
@@ -297,30 +306,72 @@ app.post("/api/buy-merch", async (req, res) => {
 });
 
 // ----------------------------------------------------
-// 3. INTASEND WEBHOOK / CALLBACK (Processes both Tickets & Merch)
+// 3. INTASEND WEBHOOK / CALLBACK (Bulletproof Ticket & Merch Dispatch)
 // ----------------------------------------------------
 app.post("/api/callback", async (req, res) => {
-  console.log("🔔 INCOMING CALLBACK RECEIVED FROM INTASEND!");
+  console.log("🔔 INCOMING CALLBACK PAYLOAD:", JSON.stringify(req.body, null, 2));
 
   try {
-    const { invoice_id, state, api_ref, challenge } = req.body;
-
+    const { challenge } = req.body;
     if (challenge) return res.json({ challenge });
 
-    const checkoutID = invoice_id || api_ref;
+    // IntaSend can supply checkout IDs under invoice_id OR api_ref
+    const invoiceId = req.body.invoice_id || req.body.invoice?.invoice_id;
+    const apiRef = req.body.api_ref || req.body.invoice?.api_ref;
 
-    if (state === "COMPLETE" || state === "SUCCESS" || req.body.status === "COMPLETE") {
-      console.log(`🎉 IntaSend Payment Verified for Checkout ID: ${checkoutID}`);
+    // Normalize raw state/status field
+    const rawState = req.body.state || req.body.status || req.body.invoice?.state || "";
+    const paymentStatus = rawState.toString().toUpperCase();
 
-      // 1. Check Merch Orders matching JSON items->>checkout_id
-      const { data: merchOrders } = await supabase
+    console.log(`🔎 IntaSend Event -> Status: "${paymentStatus}" | Invoice ID: "${invoiceId}" | API Ref: "${apiRef}"`);
+
+    if (["COMPLETE", "COMPLETED", "SUCCESS", "PAID"].includes(paymentStatus)) {
+      
+      // --- STEP 1: CHECK TICKETS TABLE ---
+      let { data: ticketOrders, error: ticketErr } = await supabase
+        .from("tickets")
+        .select("*")
+        .or(`checkout_id.eq.${invoiceId},checkout_id.eq.${apiRef}`);
+
+      if (ticketErr) {
+        console.error("❌ Supabase Ticket Lookup Error:", ticketErr.message);
+      }
+
+      if (ticketOrders && ticketOrders.length > 0) {
+        const ticket = ticketOrders[0];
+        console.log(`🎟️ TICKET MATCH FOUND! Row ID: ${ticket.id} | Email: ${ticket.email}`);
+
+        // Update database to paid
+        await supabase
+          .from("tickets")
+          .update({ status: "paid" })
+          .eq("id", ticket.id);
+
+        // DISPATCH EMAIL TO BUYER
+        try {
+          await sendTicketEmail(ticket.email, {
+            ticketId: ticket.id,
+            amount: ticket.amount,
+            ticketType: ticket.ticket_type,
+          });
+          console.log(`✅ DISPATCH COMPLETE: Ticket Email sent to ${ticket.email}`);
+        } catch (mailErr) {
+          console.error("❌ RESEND DISPATCH CRASHED:", mailErr.message || mailErr);
+        }
+
+        return res.json({ status: "ACK_TICKET" });
+      }
+
+      // --- STEP 2: CHECK MERCH ORDERS TABLE ---
+      let { data: merchOrders, error: merchErr } = await supabase
         .from("merch_orders")
         .select("*")
-        .eq("items->>checkout_id", checkoutID);
+        .or(`checkout_id.eq.${invoiceId},checkout_id.eq.${apiRef}`);
 
       if (merchOrders && merchOrders.length > 0) {
         const order = merchOrders[0];
-        
+        console.log(`🛍️ MERCH MATCH FOUND! Row ID: ${order.id}`);
+
         await supabase
           .from("merch_orders")
           .update({ status: "paid" })
@@ -328,38 +379,29 @@ app.post("/api/callback", async (req, res) => {
 
         const customerEmail = order.items?.email;
         if (customerEmail) {
-          await sendMerchReceiptEmail(customerEmail, {
-            orderId: order.id,
-            customerName: order.items?.customer_name,
-            amount: order.total_amount,
-            cart: order.items?.cart_items || [],
-          });
+          try {
+            await sendMerchReceiptEmail(customerEmail, {
+              orderId: order.id,
+              customerName: order.items?.customer_name,
+              amount: order.total_amount,
+              cart: order.items?.cart_items || [],
+            });
+            console.log(`✅ DISPATCH COMPLETE: Merch Receipt sent to ${customerEmail}`);
+          } catch (merchMailErr) {
+            console.error("❌ RESEND MERCH DISPATCH CRASHED:", merchMailErr.message);
+          }
         }
         return res.json({ status: "ACK_MERCH" });
       }
 
-      // 2. Check Event Tickets matching checkout_id
-      const { data: ticketOrder } = await supabase
-        .from("tickets")
-        .update({ status: "paid" })
-        .eq("checkout_id", checkoutID)
-        .select()
-        .single();
-
-      if (ticketOrder) {
-        console.log(`🎟️ Ticket payment verified for ${ticketOrder.email}`);
-        await sendTicketEmail(ticketOrder.email, {
-          ticketId: ticketOrder.id,
-          amount: ticketOrder.amount,
-          ticketType: ticketOrder.ticket_type,
-        });
-        return res.json({ status: "ACK_TICKET" });
-      }
+      console.warn(`⚠️ Payment marked ${paymentStatus}, but no record matched "${invoiceId}" or "${apiRef}" in Supabase.`);
+    } else {
+      console.warn(`⚠️ Callback ignored: Payment status is "${paymentStatus}".`);
     }
 
     res.json({ status: "ACK" });
   } catch (err) {
-    console.error("❌ Callback Processing Error:", err.message);
+    console.error("❌ Callback Fatal Processing Error:", err.message);
     res.status(500).json({ error: "Callback processing failed" });
   }
 });
