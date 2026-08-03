@@ -570,3 +570,6 @@ export default function MerchShopPage() {
     </div>
   );
 }
+
+// Added alias exports to resolve Next.js / TypeScript import errors:
+export { MerchShopPage as CollectionSection };
