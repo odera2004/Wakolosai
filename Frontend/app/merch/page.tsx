@@ -1,12 +1,23 @@
+'use client';
+
 import React, { useState } from 'react';
 
-const MerchSection = () => {
-  const [selectedSizes, setSelectedSizes] = useState({
+interface MerchItem {
+  id: 'hoodie' | 'cap';
+  name: string;
+  price: number;
+  image: string;
+  description: string;
+  sizes: string[];
+}
+
+export default function MerchPage() {
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({
     hoodie: 'M',
     cap: 'One Size'
   });
 
-  const merchItems = [
+  const merchItems: MerchItem[] = [
     {
       id: 'hoodie',
       name: 'Wakoloo "Live Worship" Hoodie',
@@ -25,21 +36,21 @@ const MerchSection = () => {
     }
   ];
 
-  const handleSizeChange = (itemId, size) => {
+  const handleSizeChange = (itemId: string, size: string) => {
     setSelectedSizes((prev) => ({
       ...prev,
       [itemId]: size
     }));
   };
 
-  const handleOrder = (item) => {
+  const handleOrder = (item: MerchItem) => {
     const size = selectedSizes[item.id];
     alert(`Added to cart: ${item.name} (Size: ${size}) - KES ${item.price.toLocaleString()}`);
   };
 
   return (
-    <section className="bg-black text-white py-16 px-4 md:px-8">
-      <div className="max-w-5xl mx-mx-auto">
+    <section className="bg-black text-white py-16 px-4 md:px-8 min-h-screen">
+      <div className="max-w-5xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-2 text-[#FFB800]">
@@ -86,6 +97,7 @@ const MerchSection = () => {
                       {item.sizes.map((size) => (
                         <button
                           key={size}
+                          type="button"
                           onClick={() => handleSizeChange(item.id, size)}
                           className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors ${
                             selectedSizes[item.id] === size
@@ -102,6 +114,7 @@ const MerchSection = () => {
 
                 {/* Buy Button */}
                 <button
+                  type="button"
                   onClick={() => handleOrder(item)}
                   className="w-full py-3 px-4 bg-[#FFB800] text-black font-bold rounded-xl hover:bg-[#e0a200] transition-colors"
                 >
@@ -114,6 +127,4 @@ const MerchSection = () => {
       </div>
     </section>
   );
-};
-
-export default MerchSection;
+}
