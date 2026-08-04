@@ -10,6 +10,20 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Environmental Variable Guard
+const requiredKeys = [
+  "SUPABASE_URL",
+  "SUPABASE_ANON_KEY",
+  "INTASEND_SECRET_KEY",
+  "INTASEND_PUBLIC_KEY",
+  "RESEND_API_KEY",
+];
+
+const missingKeys = requiredKeys.filter((key) => !process.env[key]);
+if (missingKeys.length > 0) {
+  console.error(`❌ CRITICAL: Missing Render Environment Keys: ${missingKeys.join(", ")}`);
+}
+
 // Initialize Supabase & Resend
 const supabase = createClient(
   process.env.SUPABASE_URL || "",
@@ -17,6 +31,24 @@ const supabase = createClient(
 );
 
 const resend = new Resend(process.env.RESEND_API_KEY || "");
+
+// Determine IntaSend Base Host based on Mode
+const isTestMode = process.env.INTASEND_TEST_MODE === "true";
+const INTASEND_BASE_URL = isTestMode
+  ? "https://sandbox.intasend.com/api/v1"
+  : "https://payment.intasend.com/api/v1";
+
+// Helper: Format Phone Numbers to 254 Format
+function formatPhoneNumber(phone) {
+  if (!phone) return "";
+  let cleaned = String(phone).trim().replace(/\D/g, "");
+  if (cleaned.startsWith("0")) {
+    return "254" + cleaned.substring(1);
+  } else if (cleaned.startsWith("7") || cleaned.startsWith("1")) {
+    return "254" + cleaned;
+  }
+  return cleaned;
+}
 
 // Helper: Send Pass Email via Resend
 async function sendTicketEmail(toEmail, ticketType, amount, refId) {
@@ -55,105 +87,93 @@ async function sendTicketEmail(toEmail, ticketType, amount, refId) {
 
 // 1. INITIATE PAYMENT ROUTE
 app.post("/api/buy-ticket", async (req, res) => {
+  const { phone, email, amount, ticketType } = req.body;
+
+  if (!phone || !email || !amount) {
+    return res.status(400).json({ error: "Phone, email, and amount are required." });
+  }
+
+  console.log("📥 BUY TICKET REQUEST:", req.body);
+
+  const formattedPhone = formatPhoneNumber(phone);
+  const apiRef = `WAKOLOSAI-${Date.now()}`;
+  const cleanEmail = email.toLowerCase().trim();
+
+  // Step 1: Pre-insert ticket in Supabase to avoid race condition with callback
+  const { error: dbError } = await supabase.from("ticket_sales").insert([
+    {
+      email: cleanEmail,
+      phone: formattedPhone,
+      ticket_type: ticketType || "General Pass",
+      amount: Number(amount),
+      status: "pending",
+      merchant_request_id: apiRef,
+      api_ref: apiRef,
+      payment_method: "M-PESA",
+    },
+  ]);
+
+  if (dbError) {
+    console.error("❌ Supabase Insert Error:", dbError);
+    return res.status(500).json({ error: "Failed to create pending ticket record." });
+  }
+
+  console.log("✅ Pending ticket pre-inserted into Supabase with api_ref:", apiRef);
+
+  // Step 2: Trigger IntaSend M-Pesa STK Push API
   try {
-    const { phone, email, amount, ticketType } = req.body;
+    const intasendEndpoint = `${INTASEND_BASE_URL}/payment/mpesa-stk-push/`;
+    console.log(`📡 Dispatching STK Push to Endpoint (${isTestMode ? "Sandbox" : "Live"}): ${intasendEndpoint}`);
 
-    if (!phone || !email || !amount) {
-      return res.status(400).json({ error: "Phone, email, and amount are required." });
-    }
-
-    console.log("📥 BUY TICKET REQUEST:", req.body);
-
-    // 1. Generate unique reference ID
-    const apiRef = `WAKOLOSAI-${Date.now()}`;
-    const cleanEmail = email.toLowerCase().trim();
-
-    // 2. Save PENDING record to Supabase FIRST (Prevents webhook race condition)
-    const { error: dbError } = await supabase.from("ticket_sales").insert([
-      {
-        email: cleanEmail,
-        phone: phone,
-        ticket_type: ticketType || "General Pass",
-        amount: Number(amount),
-        status: "pending",
-        merchant_request_id: apiRef, // Default fallback
-        api_ref: apiRef,
-        payment_method: "M-PESA",
+    const intasendResponse = await fetch(intasendEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.INTASEND_SECRET_KEY.trim()}`,
       },
-    ]);
+      body: JSON.stringify({
+        public_key: process.env.INTASEND_PUBLIC_KEY.trim(),
+        currency: "KES",
+        email: cleanEmail,
+        phone_number: formattedPhone,
+        amount: Number(amount),
+        api_ref: apiRef,
+      }),
+    });
 
-    if (dbError) {
-      console.error("❌ Supabase Insert Error:", dbError);
-      return res.status(500).json({ error: "Failed to create pending ticket record." });
-    }
+    const intasendData = await intasendResponse.json();
 
-    console.log("✅ Pending ticket pre-inserted into Supabase with api_ref:", apiRef);
-
-    // 3. Call IntaSend Checkout API
-    let intasendResponse;
-    let intasendData = {};
-
-    try {
-      intasendResponse = await fetch("https://payment.intasend.com/api/v1/checkout/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.INTASEND_SECRET_KEY}`,
-        },
-        body: JSON.stringify({
-          public_key: process.env.INTASEND_PUBLIC_KEY || process.env.INTASEND_PUBLIC_KEY,
-          currency: "KES",
-          email: cleanEmail,
-          phone_number: phone,
-          amount: Number(amount),
-          api_ref: apiRef,
-          method: "M-PESA",
-        }),
-      });
-
-      intasendData = await intasendResponse.json();
-    } catch (iErr) {
-      console.error("❌ IntaSend Network Exception:", iErr.message);
-      // Clean up orphaned pending ticket record
-      await supabase.from("ticket_sales").delete().eq("api_ref", apiRef);
-      return res.status(502).json({ error: "Failed to reach payment gateway." });
-    }
-
-    // Verify HTTP Status
     if (!intasendResponse.ok) {
       console.error("❌ IntaSend Checkout Failed:", intasendData);
+      // Clean up pre-inserted record if gateway auth or STK push fails
       await supabase.from("ticket_sales").delete().eq("api_ref", apiRef);
-      return res.status(500).json({ error: "Unable to initiate payment session with provider." });
-    }
-
-    // Verify Payload Integrity
-    if (!intasendData.id && !intasendData.invoice) {
-      console.error("⚠️ Unexpected IntaSend response format:", intasendData);
+      return res.status(500).json({
+        error: "Unable to initiate payment session with provider.",
+        details: intasendData,
+      });
     }
 
     console.log("🟢 IntaSend Response Success:", intasendData);
 
-    const merchantReqId = String(
-      intasendData.id || intasendData.invoice?.invoice_id || apiRef
-    );
+    const invoiceId = String(intasendData.invoice?.invoice_id || intasendData.id || apiRef);
 
-    // Update merchant_request_id if an official ID was returned
-    if (merchantReqId !== apiRef) {
+    if (invoiceId !== apiRef) {
       await supabase
         .from("ticket_sales")
-        .update({ merchant_request_id: merchantReqId })
+        .update({ merchant_request_id: invoiceId })
         .eq("api_ref", apiRef);
     }
 
     return res.status(200).json({
       success: true,
       message: "STK Push Initiated",
-      merchant_request_id: merchantReqId,
+      merchant_request_id: invoiceId,
       apiRef,
     });
-  } catch (error) {
-    console.error("❌ Buy Ticket Route Error:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
+  } catch (iErr) {
+    console.error("❌ IntaSend Network Exception:", iErr.message);
+    await supabase.from("ticket_sales").delete().eq("api_ref", apiRef);
+    return res.status(502).json({ error: "Failed to reach payment gateway." });
   }
 });
 
@@ -162,7 +182,7 @@ app.post("/api/callback", async (req, res) => {
   try {
     console.log("🔔 Callback payload received:", JSON.stringify(req.body));
 
-    // A. Challenge Handshake: Respond ONLY if it's purely a test/handshake ping
+    // A. Challenge Handshake: Respond ONLY if it's purely a test handshake ping without status
     if (
       req.body.challenge &&
       !req.body.state &&
@@ -186,11 +206,9 @@ app.post("/api/callback", async (req, res) => {
       return res.status(400).json({ error: "Missing api_ref in payload" });
     }
 
-    // Process only completed/successful payment states
     if (["COMPLETE", "SUCCESS", "COMPLETED"].includes(status)) {
       console.log(`🎉 Payment complete for reference: ${targetApiRef}`);
 
-      // Fetch ticket exclusively by api_ref
       const { data: sale, error: fetchError } = await supabase
         .from("ticket_sales")
         .select("*")
@@ -202,13 +220,11 @@ app.post("/api/callback", async (req, res) => {
         return res.status(404).json({ error: "Ticket not found" });
       }
 
-      // Idempotency Check
       if (sale.status === "paid") {
         console.log("ℹ️ Ticket already processed and marked as paid.");
         return res.status(200).json({ status: "already_processed" });
       }
 
-      // Update Supabase ticket status
       const invoiceId = payload.invoice_id || invoice.invoice_id || sale.merchant_request_id;
       const { error: updateError } = await supabase
         .from("ticket_sales")
@@ -225,7 +241,6 @@ app.post("/api/callback", async (req, res) => {
 
       console.log("✅ Ticket marked as paid in Supabase");
 
-      // Send Confirmation Email and explicit logging
       const emailSent = await sendTicketEmail(
         sale.email,
         sale.ticket_type,
@@ -233,15 +248,9 @@ app.post("/api/callback", async (req, res) => {
         sale.api_ref
       );
 
-      if (emailSent) {
-        console.log("✅ Confirmation email sent.");
-      } else {
-        console.error("❌ Confirmation email failed.");
-      }
-
-      return res.status(200).json({ 
+      return res.status(200).json({
         status: "processed",
-        email_sent: emailSent 
+        email_sent: emailSent,
       });
     }
 
