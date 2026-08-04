@@ -46,7 +46,7 @@ async function sendTicketEmail(toEmail, ticketType, amount, refId) {
   }
 }
 
-// 1. INITIATE PAYMENT ROUTE
+// 1. INITIATE PAYMENT ROUTE (Triggers IntaSend + Supabase + Fallback Email)
 app.post("/api/buy-ticket", async (req, res) => {
   try {
     const { phone, email, amount, ticketType } = req.body;
@@ -85,7 +85,7 @@ app.post("/api/buy-ticket", async (req, res) => {
 
     const merchantReqId = String(intasendData.id || intasendData.invoice?.invoice_id || apiRef);
 
-    // B. Record Sale in Supabase
+    // B. Save Record to Supabase
     try {
       const { error: dbError } = await supabase.from("ticket_sales").insert([
         {
@@ -101,17 +101,17 @@ app.post("/api/buy-ticket", async (req, res) => {
       ]);
 
       if (dbError) console.warn("⚠️ Supabase Insert Issue:", dbError.message);
-      else console.log("✅ Successfully logged row into Supabase!");
+      else console.log("✅ Row created in Supabase!");
     } catch (dbErr) {
-      console.warn("⚠️ Supabase Exception Catch:", dbErr);
+      console.warn("⚠️ Supabase Exception:", dbErr);
     }
 
-    // C. DIRECT EMAIL TRIGGER (Ensures email sends immediately without relying solely on webhooks)
+    // C. Direct Email Trigger (Fallback so emails arrive immediately)
     await sendTicketEmail(cleanEmail, ticketType || "Live Worship Pass", amount, apiRef);
 
     return res.status(200).json({
       success: true,
-      message: "STK Push Sent & Pass Email Dispatched",
+      message: "STK Push Initiated & Email Dispatched",
       merchant_request_id: merchantReqId,
       apiRef,
     });
@@ -124,24 +124,39 @@ app.post("/api/buy-ticket", async (req, res) => {
 // 2. INTASEND CALLBACK / WEBHOOK ROUTE
 app.post("/api/callback", async (req, res) => {
   try {
-    console.log("🔔 Callback received from IntaSend:", JSON.stringify(req.body));
+    console.log("🔔 Callback payload received:", JSON.stringify(req.body));
 
-    const { state, status: bodyStatus, invoice_id, api_ref, value, account, phone } = req.body;
-    const status = (state || bodyStatus || "").toUpperCase();
+    // A. Handle IntaSend Challenge
+    if (req.body.challenge) {
+      console.log("✅ Responding to IntaSend Challenge Handshake");
+      return res.status(200).json({ challenge: req.body.challenge });
+    }
+
+    // B. Reconcile Database Entry by merchant_request_id or api_ref
+    const payload = req.body;
+    const invoice = payload.invoice || payload;
+    const rawStatus = payload.state || payload.status || invoice.state || invoice.status || "";
+    const status = String(rawStatus).toUpperCase();
+    const refCode = payload.api_ref || invoice.api_ref || payload.invoice_id || invoice.invoice_id;
 
     if (status === "COMPLETE" || status === "SUCCESS" || status === "COMPLETED") {
-      const customerEmail = account || req.body.email || "customer@example.com";
-      const paidAmount = value || req.body.amount || 1;
-      const refCode = invoice_id || api_ref || `PASS-${Date.now()}`;
+      console.log(`🎉 Payment complete for reference: ${refCode}`);
 
-      // Update Supabase to "paid" status
-      await supabase
+      // Update Supabase ticket status using the reference code
+      const { data: updatedRows, error: updateErr } = await supabase
         .from("ticket_sales")
         .update({ status: "paid" })
-        .or(`merchant_request_id.eq.${invoice_id},api_ref.eq.${api_ref}`);
+        .or(`merchant_request_id.eq.${refCode},api_ref.eq.${refCode}`)
+        .select();
 
-      // Send Confirmation Email
-      await sendTicketEmail(customerEmail, "Live Worship Pass", paidAmount, refCode);
+      if (updateErr) {
+        console.error("❌ Supabase Update Failed:", updateErr.message);
+      } else if (updatedRows && updatedRows.length > 0) {
+        const row = updatedRows[0];
+        console.log("✅ Supabase status updated to paid!");
+        // Send email based on database record
+        await sendTicketEmail(row.email, row.ticket_type, row.amount, row.api_ref);
+      }
     }
 
     return res.status(200).json({ status: "processed" });
