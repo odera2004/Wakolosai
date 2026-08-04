@@ -1,292 +1,217 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
-
-dotenv.config();
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const { createClient } = require("@supabase/supabase-js");
+const { Resend } = require("resend");
+const QRCode = require("qrcode");
+const IntaSend = require("intasend-node");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Guard: Verify keys on server boot
-const requiredKeys = [
-  "SUPABASE_URL",
-  "SUPABASE_ANON_KEY",
-  "INTASEND_SECRET_KEY",
-  "RESEND_API_KEY",
-];
-
-const missingKeys = requiredKeys.filter((key) => !process.env[key]);
-if (missingKeys.length > 0) {
-  console.error(`❌ CRITICAL: Missing Render Environment Keys: ${missingKeys.join(", ")}`);
+// Guard: Early environment variable check
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  console.error("❌ CRITICAL ERROR: SUPABASE_URL or SUPABASE_ANON_KEY is missing!");
+  process.exit(1);
 }
 
-// Initialize Supabase & Resend
-const supabase = createClient(
-  process.env.SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || ""
+// Initialize Supabase, Resend & IntaSend SDK
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+const intasend = new IntaSend(
+  process.env.INTASEND_PUBLIC_KEY,
+  process.env.INTASEND_SECRET_KEY,
+  process.env.INTASEND_TEST_MODE === "true" // set to false for production
 );
 
-const resend = new Resend((process.env.RESEND_API_KEY || "").trim());
+// Base URL detection
+const BASE_URL = process.env.BACKEND_URL || (process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : "https://wakolosai.onrender.com");
 
-// Host selection based on test/live mode
-const isTestMode = process.env.INTASEND_TEST_MODE === "true";
-const INTASEND_BASE_URL = isTestMode
-  ? "https://sandbox.intasend.com/api/v1"
-  : "https://payment.intasend.com/api/v1";
-
-// Helper: Format Phone Numbers to standard Kenya 254 Format
-function formatPhoneNumber(phone) {
+// Helper: Format Phone Numbers to 254XXXXXXXXX
+const formatPhoneNumber = (phone) => {
   if (!phone) return "";
-  let cleaned = String(phone).trim().replace(/\D/g, "");
+  let cleaned = phone.toString().trim().replace(/\D/g, "");
   if (cleaned.startsWith("0")) {
     return "254" + cleaned.substring(1);
   } else if (cleaned.startsWith("7") || cleaned.startsWith("1")) {
     return "254" + cleaned;
   }
   return cleaned;
-}
+};
 
-// Helper: Send Pass Email via Resend
-async function sendTicketEmail(toEmail, ticketType, amount, refId) {
+// Helper: Generate QR Code Data URL
+const generateQRCode = async (text) => {
   try {
-    console.log(`📧 Attempting to send ticket email to: ${toEmail}...`);
+    return await QRCode.toDataURL(text);
+  } catch (err) {
+    console.error("❌ QR Code generation failed:", err);
+    throw err;
+  }
+};
+
+// Helper: Send Ticket Email via Resend API
+const sendTicketEmail = async (email, ticketDetails) => {
+  try {
+    console.log(`⏳ Generating QR Code for ${email}...`);
+    const qrCodeUrl = await generateQRCode(ticketDetails.ticketId);
+    const senderEmail = process.env.RESEND_FROM_EMAIL || "Wakolosai Events <onboarding@resend.dev>";
+
+    console.log(`📡 Sending email via Resend API to ${email}...`);
     const { data, error } = await resend.emails.send({
-      from: "Wakoloo <tickets@wakolosai.xyz>",
-      to: [toEmail],
-      subject: "Your Live Worship Pass Confirmation",
+      from: senderEmail,
+      to: [email],
+      subject: `Your Wakolosai Ticket [${ticketDetails.ticketId}]`,
       html: `
-        <div style="font-family: sans-serif; padding: 24px; background: #000; color: #fff; border-radius: 12px; border: 1px solid #FFB800;">
-          <h2 style="color: #FFB800; margin-top: 0;">Worship Pass Confirmed!</h2>
-          <p>Thank you for your purchase. Here are your ticket details:</p>
-          <ul style="line-height: 1.8;">
-            <li><strong>Pass Type:</strong> ${ticketType}</li>
-            <li><strong>Amount Paid:</strong> KES ${amount}</li>
-            <li><strong>Reference ID:</strong> ${refId}</li>
-          </ul>
-          <p style="color: #aaa; font-size: 12px; margin-top: 20px;">Present this digital confirmation at the entrance for verification.</p>
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <h2>🎟️ Payment Confirmed! Here is your ticket for Wakolosai.</h2>
+          <p><strong>Ticket ID:</strong> ${ticketDetails.ticketId}</p>
+          <p><strong>Event:</strong> Wakolosai Live</p>
+          <p><strong>Amount Paid:</strong> KES ${ticketDetails.amount}</p>
+          <hr />
+          <p>Present this QR code at the entrance:</p>
+          <img src="${qrCodeUrl}" alt="Ticket QR Code" style="width: 200px; height: 200px;" />
+          <hr />
+          <p style="font-size: 12px; color: #777;">Sent via Wakolosai Platform</p>
         </div>
       `,
     });
 
     if (error) {
-      console.error("❌ Resend API Error:", error);
-      return false;
+      console.error("❌ RESEND DELIVERY ERROR:", error);
+      throw error;
     }
 
-    console.log("✅ Resend Email Sent Successfully:", data);
-    return true;
+    console.log(`📧 SUCCESS: Email delivered to ${email}. Response ID: ${data?.id}`);
+    return data;
   } catch (err) {
-    console.error("❌ Resend Email Exception:", err);
-    return false;
+    console.error("❌ Email dispatch failed:", err.message);
+    throw err;
   }
-}
+};
 
-// 1. INITIATE DIRECT M-PESA STK PUSH
-app.post("/api/buy-ticket", async (req, res) => {
+// 1. Direct Email Test Endpoint
+app.post("/api/test-email", async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email is required" });
+
   try {
-    const { phone, email, amount, ticketType } = req.body;
-
-    if (!phone || !email || !amount) {
-      return res.status(400).json({ error: "Phone, email, and amount are required." });
-    }
-
-    console.log("📥 BUY TICKET REQUEST:", req.body);
-
-    const formattedPhone = formatPhoneNumber(phone);
-    const apiRef = `WAKOLOSAI-${Date.now()}`;
-    const cleanEmail = email.toLowerCase().trim();
-
-    // Step A: Pre-insert ticket in Supabase with "pending" status
-    const { error: dbError } = await supabase.from("ticket_sales").insert([
-      {
-        email: cleanEmail,
-        phone: formattedPhone,
-        ticket_type: ticketType || "General Pass",
-        amount: Number(amount),
-        status: "pending",
-        merchant_request_id: apiRef,
-        api_ref: apiRef,
-        payment_method: "M-PESA",
-      },
-    ]);
-
-    if (dbError) {
-      console.error("❌ Supabase Insert Error:", dbError);
-      return res.status(500).json({ error: "Failed to create pending ticket record." });
-    }
-
-    console.log("✅ Pending ticket pre-inserted into Supabase with api_ref:", apiRef);
-
-    // Step B: Direct Call to M-Pesa STK Push Endpoint
-    const stkEndpoint = `${INTASEND_BASE_URL}/payment/mpesa-stk-push/`;
-    const rawSecretKey = process.env.INTASEND_SECRET_KEY || "";
-    const cleanSecretKey = rawSecretKey.trim().replace(/^["']|["']$/g, ""); // Strip any trailing spaces or quotes
-
-    console.log(`📡 Sending STK Push to phone: ${formattedPhone} via ${stkEndpoint}`);
-
-    let intasendResponse;
-    let intasendData = {};
-
-    try {
-      intasendResponse = await fetch(stkEndpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${cleanSecretKey}`,
-        },
-        body: JSON.stringify({
-          currency: "KES",
-          email: cleanEmail,
-          phone_number: formattedPhone,
-          amount: Number(amount),
-          api_ref: apiRef,
-        }),
-      });
-
-      intasendData = await intasendResponse.json();
-    } catch (iErr) {
-      console.error("❌ IntaSend Network Error:", iErr.message);
-      await supabase.from("ticket_sales").delete().eq("api_ref", apiRef);
-      return res.status(502).json({ error: "Failed to reach payment gateway." });
-    }
-
-    if (!intasendResponse.ok) {
-      console.error("❌ IntaSend STK Push Failed:", JSON.stringify(intasendData, null, 2));
-      await supabase.from("ticket_sales").delete().eq("api_ref", apiRef);
-      return res.status(500).json({
-        error: "Failed to send M-Pesa prompt.",
-        details: intasendData,
-      });
-    }
-
-    console.log("🟢 IntaSend STK Prompt Sent Successfully:", intasendData);
-
-    const invoiceId = String(
-      intasendData.invoice?.invoice_id || intasendData.id || apiRef
-    );
-
-    if (invoiceId !== apiRef) {
-      await supabase
-        .from("ticket_sales")
-        .update({ merchant_request_id: invoiceId })
-        .eq("api_ref", apiRef);
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "M-Pesa prompt sent to phone. Enter PIN to complete.",
-      merchant_request_id: invoiceId,
-      apiRef,
-    });
+    console.log(`🧪 Testing email dispatch to: ${email}`);
+    await sendTicketEmail(email, { ticketId: "TEST-TICKET-12345", amount: "100" });
+    res.json({ message: `✅ Test email successfully sent to ${email}` });
   } catch (error) {
-    console.error("❌ Buy Ticket Route Error:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "Failed to send email", details: error.message });
   }
 });
 
-// 2. INTASEND CALLBACK / WEBHOOK ROUTE
-app.post("/api/callback", async (req, res) => {
+// 2. IntaSend M-Pesa STK Push Payment Initiation
+app.post("/api/buy-ticket", async (req, res) => {
+  const { phone, email, amount, ticketType, name } = req.body;
+
+  if (!phone || !email || !amount) {
+    return res.status(400).json({ error: "Missing required fields: phone, email, amount" });
+  }
+
+  const formattedPhone = formatPhoneNumber(phone);
+  console.log(`📡 Initiating IntaSend STK Push for ${formattedPhone}...`);
+
   try {
-    console.log("🔔 Callback payload received:", JSON.stringify(req.body, null, 2));
+    let collection = intasend.collection();
+    const response = await collection.mpesaStkPush({
+      first_name: name || "Customer",
+      last_name: "User",
+      email: email,
+      amount: Number(amount),
+      phone_number: formattedPhone,
+      api_ref: `WAKOLOSAI-${Date.now()}`,
+    });
 
-    // A. Challenge Handshake Verification
-    if (
-      req.body.challenge &&
-      !req.body.state &&
-      !req.body.status &&
-      !req.body.invoice_id &&
-      !req.body.api_ref
-    ) {
-      console.log("✅ Responding to IntaSend Challenge Handshake");
-      return res.status(200).json({ challenge: req.body.challenge });
+    console.log("📲 IntaSend Response:", JSON.stringify(response, null, 2));
+
+    const checkoutID = response.invoice?.invoice_id || response.id || response.api_ref;
+
+    // Save initial record as 'pending' in Supabase DB
+    const { data: ticket, error: dbError } = await supabase
+      .from("tickets")
+      .insert([
+        {
+          checkout_id: checkoutID,
+          email,
+          phone: formattedPhone,
+          amount,
+          ticket_type: ticketType || "Standard",
+          status: "pending",
+        },
+      ])
+      .select()
+      .single();
+
+    if (dbError) throw dbError;
+
+    console.log(`✅ Saved pending ticket in DB for checkoutID: ${checkoutID}`);
+    res.json({ success: true, checkoutID, message: "STK push sent to your phone" });
+  } catch (err) {
+    console.error("❌ IntaSend STK Push Error:", err.message || err);
+    res.status(500).json({ error: err.message || "Payment initiation failed" });
+  }
+});
+
+// 3. IntaSend Webhook / Callback Endpoint
+app.post("/api/callback", async (req, res) => {
+  console.log("🔔 INCOMING CALLBACK RECEIVED FROM INTASEND!");
+  console.log("Payload:", JSON.stringify(req.body, null, 2));
+
+  try {
+    const { invoice_id, state, api_ref, value, challenge } = req.body;
+
+    // Support IntaSend challenge check if applicable
+    if (challenge) {
+      return res.json({ challenge });
     }
 
-    // B. Reconcile Payment Status
-    const payload = req.body;
-    const invoice = payload.invoice || payload;
-    const rawStatus = payload.state || payload.status || invoice.state || invoice.status || "";
-    const status = String(rawStatus).toUpperCase();
-    const targetApiRef = payload.api_ref || invoice.api_ref;
+    const checkoutID = invoice_id || api_ref;
 
-    if (!targetApiRef) {
-      console.error("❌ Callback missing api_ref identification");
-      return res.status(400).json({ error: "Missing api_ref in payload" });
-    }
+    if (state === "COMPLETE" || state === "SUCCESS" || req.body.status === "COMPLETE") {
+      console.log(`🎉 IntaSend Payment Verified for Checkout ID: ${checkoutID}`);
 
-    if (["COMPLETE", "SUCCESS", "COMPLETED"].includes(status)) {
-      console.log(`🎉 Payment complete for reference: ${targetApiRef}`);
-
-      const { data: sale, error: fetchError } = await supabase
-        .from("ticket_sales")
-        .select("*")
-        .eq("api_ref", targetApiRef)
+      // Search matching row by invoice_id OR checkout_id
+      const { data: ticket, error: updateError } = await supabase
+        .from("tickets")
+        .update({ status: "paid" })
+        .eq("checkout_id", checkoutID)
+        .select()
         .single();
 
-      if (fetchError || !sale) {
-        console.error("❌ Ticket not found for api_ref:", targetApiRef);
-        return res.status(404).json({ error: "Ticket not found" });
+      if (updateError || !ticket) {
+        console.error("❌ Failed to update DB row:", updateError);
+        return res.status(500).send("Database record not found");
       }
 
-      // Avoid sending duplicate emails on repeated webhooks
-      if (sale.status === "paid") {
-        console.log("ℹ️ Ticket already processed and marked as paid.");
-        return res.status(200).json({ status: "already_processed" });
-      }
-
-      const invoiceId = payload.invoice_id || invoice.invoice_id || sale.merchant_request_id;
-      const { error: updateError } = await supabase
-        .from("ticket_sales")
-        .update({
-          status: "paid",
-          merchant_request_id: invoiceId,
-        })
-        .eq("api_ref", targetApiRef);
-
-      if (updateError) {
-        console.error("❌ Supabase Update Error:", updateError);
-        return res.status(500).json({ error: "Database update failed" });
-      }
-
-      console.log("✅ Ticket status updated to paid in Supabase");
-
-      const emailSent = await sendTicketEmail(
-        sale.email,
-        sale.ticket_type,
-        sale.amount,
-        sale.api_ref
-      );
-
-      return res.status(200).json({
-        status: "processed",
-        email_sent: emailSent,
+      // Dispatch Ticket Email
+      await sendTicketEmail(ticket.email, {
+        ticketId: ticket.id,
+        amount: ticket.amount,
       });
+
+      console.log(`✨ Ticket process complete for ${ticket.email}`);
+    } else {
+      console.warn(`⚠️ Payment state: ${state} for checkout: ${checkoutID}`);
+      await supabase
+        .from("tickets")
+        .update({ status: "failed" })
+        .eq("checkout_id", checkoutID);
     }
 
-    console.log(`ℹ️ Unhandled status state: ${status}`);
-    return res.status(200).json({ status: "ignored_state" });
+    res.json({ status: "ACK" });
   } catch (err) {
-    console.error("❌ Callback Error:", err);
-    return res.status(500).json({ error: "Callback Processing Failed" });
+    console.error("❌ Callback Processing Error:", err.message);
+    res.status(500).json({ error: "Callback processing failed" });
   }
 });
 
-// 3. FETCH TICKET TIERS
-app.get("/api/ticket-tiers", async (req, res) => {
-  try {
-    const { data, error } = await supabase.from("ticket_tiers").select("*");
-    if (error) {
-      console.error("❌ Supabase Fetch Error:", error);
-      return res.status(500).json({ error: error.message });
-    }
-    return res.json(data || []);
-  } catch (err) {
-    console.error("❌ Ticket Tiers Route Error:", err);
-    return res.status(500).json({ error: err.message });
-  }
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌐 Base URL set to: ${BASE_URL}`);
 });
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
