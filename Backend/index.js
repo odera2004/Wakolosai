@@ -173,7 +173,7 @@ const sendMerchReceiptEmail = async (email, orderDetails) => {
 // 1. EVENT TICKETS ROUTE
 // ----------------------------------------------------
 app.post("/api/buy-ticket", async (req, res) => {
-  const { phone, email, amount, ticketType, tierBreakdown, isSupport } = req.body;
+  const { phone, email, amount, ticketType } = req.body;
 
   if (!phone || !email || !amount) {
     return res.status(400).json({ error: "Missing required fields: phone, email, amount" });
@@ -196,7 +196,7 @@ app.post("/api/buy-ticket", async (req, res) => {
 
     const checkoutID = response.invoice?.invoice_id || response.id || apiRef;
 
-    // Save ticket to Supabase with BOTH checkout_id and api_ref saved for fail-safe matching
+    // Modified: Explicitly storing both checkout_id and api_ref
     const { data: ticket, error: dbError } = await supabase
       .from("tickets")
       .insert([
@@ -250,6 +250,7 @@ app.post("/api/buy-merch", async (req, res) => {
 
     const checkoutID = response.invoice?.invoice_id || response.id || apiRef;
 
+    // Modified: Storing both checkout_id and api_ref for merch
     const orderPayload = {
       checkout_id: String(checkoutID),
       api_ref: apiRef,
@@ -305,7 +306,6 @@ app.post("/api/callback", async (req, res) => {
     if (["COMPLETE", "COMPLETED", "SUCCESS", "PAID"].includes(paymentStatus)) {
       
       // --- STEP 1: CHECK TICKETS TABLE ---
-      // Query using multiple separate attempts to eliminate Postgrest OR syntax bugs
       let ticket = null;
 
       if (invoiceId) {
