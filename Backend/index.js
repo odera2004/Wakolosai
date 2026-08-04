@@ -101,7 +101,7 @@ app.post("/api/buy-ticket", async (req, res) => {
           Authorization: `Bearer ${process.env.INTASEND_SECRET_KEY}`,
         },
         body: JSON.stringify({
-          public_key: process.env.INTASEND_PUBLIC_KEY || process.env.INTASEND_PUBLISHER_KEY,
+          public_key: process.env.INTASEND_PUBLIC_KEY || process.env.INTASEND_PUBLIC_KEY,
           currency: "KES",
           email: cleanEmail,
           phone_number: phone,
