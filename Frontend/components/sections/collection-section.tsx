@@ -66,11 +66,13 @@ export function CollectionSection() {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://wakolosai.onrender.com";
 
-  // Helper to format Kenya phone numbers to 254...
+  // Robust Kenya phone formatter to strictly output 254XXXXXXXXX (12 digits)
   const formatPhoneNumber = (input: string) => {
-    let cleaned = input.replace(/\D/g, "");
+    let cleaned = input.trim().replace(/\D/g, "");
     if (cleaned.startsWith("0")) {
       cleaned = "254" + cleaned.slice(1);
+    } else if (cleaned.startsWith("7") || cleaned.startsWith("1")) {
+      cleaned = "254" + cleaned;
     }
     return cleaned;
   };
@@ -118,15 +120,23 @@ export function CollectionSection() {
   const hasSelectedTickets = Object.values(quantities).some((qty) => qty > 0);
   const finalCheckoutAmount = isTestMode && hasSelectedTickets ? 1 : rawTotalAmount;
 
+  // Final support amount respecting test mode
+  const rawSupportAmt = Math.max(0, Number(supportAmount) || 0);
+  const finalSupportAmount = isTestMode && rawSupportAmt > 0 ? 1 : rawSupportAmt;
+
   // Ticket Checkout Handler
   const handleCheckout = async () => {
+    const formattedPhone = formatPhoneNumber(phone);
+
     if (!email.trim() || !phone.trim() || !hasSelectedTickets) {
-      return alert("Please fill in your details and select at least one ticket.");
+      return alert("Please fill in your email, phone number, and select at least one ticket.");
+    }
+
+    if (formattedPhone.length !== 12) {
+      return alert("Please enter a valid Kenyan phone number (e.g. 0712345678).");
     }
 
     setLoading(true);
-
-    const formattedPhone = formatPhoneNumber(phone.trim());
 
     const ticketSummary = Object.entries(quantities)
       .filter(([_, qty]) => qty > 0)
@@ -168,13 +178,18 @@ export function CollectionSection() {
 
   // Support / Offering Handler
   const handleSupportCheckout = async () => {
-    const amt = Number(supportAmount);
-    if (!supportEmail.trim() || !supportPhone.trim() || !amt || amt <= 0) {
+    const formattedPhone = formatPhoneNumber(supportPhone);
+    const cleanEmail = supportEmail.toLowerCase().trim();
+
+    if (!cleanEmail || !supportPhone.trim() || rawSupportAmt <= 0) {
       return alert("Please enter a valid amount, phone number, and email to send support.");
     }
 
+    if (formattedPhone.length !== 12) {
+      return alert("Please enter a valid Kenyan phone number (e.g. 0712345678).");
+    }
+
     setSupportLoading(true);
-    const formattedPhone = formatPhoneNumber(supportPhone.trim());
 
     try {
       const res = await fetch(`${apiUrl}/api/buy-ticket`, {
@@ -182,9 +197,9 @@ export function CollectionSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phone: formattedPhone,
-          email: supportEmail.toLowerCase().trim(),
-          amount: amt,
-          ticketType: `Support Offering (KES ${amt})`,
+          email: cleanEmail,
+          amount: finalSupportAmount,
+          ticketType: `Support Offering (KES ${rawSupportAmt})`,
           isSupport: true,
         }),
       });
@@ -192,7 +207,7 @@ export function CollectionSection() {
       const data = await res.json();
 
       if (res.ok) {
-        alert("✅ STK Push Sent for Support Contribution! Enter your M-Pesa PIN to complete.");
+        alert(`✅ STK Push Sent for KES ${finalSupportAmount}! Enter your M-Pesa PIN on your phone to complete your support contribution.`);
         setSupportAmount("");
       } else {
         alert(`❌ ${data.error || "Failed to trigger STK Push."}`);
@@ -388,7 +403,7 @@ export function CollectionSection() {
                   className="w-full bg-gradient-to-r from-[#FFB800] to-[#e0a200] hover:opacity-90 active:scale-[0.98] text-black font-extrabold text-xs uppercase tracking-widest py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   {supportLoading ? <Loader2 className="animate-spin text-black" size={16} /> : <Heart size={16} className="fill-black" />}
-                  {supportLoading ? "Sending STK Push..." : `Send Support (KES ${Number(supportAmount || 0).toLocaleString()})`}
+                  {supportLoading ? "Sending STK Push..." : `Send Support (KES ${finalSupportAmount.toLocaleString()}${isTestMode ? " - Test Mode" : ""})`}
                 </button>
               </div>
             </div>
