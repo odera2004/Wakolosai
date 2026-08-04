@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Environmental Variable Guard
+// Guard: Environmental Variable Checklist
 const requiredKeys = [
   "SUPABASE_URL",
   "SUPABASE_ANON_KEY",
@@ -32,7 +32,8 @@ const supabase = createClient(
 
 const resend = new Resend(process.env.RESEND_API_KEY || "");
 
-// Determine IntaSend Base Host based on Mode
+// IntaSend Domain Selection
+// If INTASEND_TEST_MODE="true", calls go to sandbox.intasend.com; otherwise payment.intasend.com
 const isTestMode = process.env.INTASEND_TEST_MODE === "true";
 const INTASEND_BASE_URL = isTestMode
   ? "https://sandbox.intasend.com/api/v1"
@@ -87,65 +88,79 @@ async function sendTicketEmail(toEmail, ticketType, amount, refId) {
 
 // 1. INITIATE PAYMENT ROUTE
 app.post("/api/buy-ticket", async (req, res) => {
-  const { phone, email, amount, ticketType } = req.body;
-
-  if (!phone || !email || !amount) {
-    return res.status(400).json({ error: "Phone, email, and amount are required." });
-  }
-
-  console.log("📥 BUY TICKET REQUEST:", req.body);
-
-  const formattedPhone = formatPhoneNumber(phone);
-  const apiRef = `WAKOLOSAI-${Date.now()}`;
-  const cleanEmail = email.toLowerCase().trim();
-
-  // Step 1: Pre-insert ticket in Supabase to avoid race condition with callback
-  const { error: dbError } = await supabase.from("ticket_sales").insert([
-    {
-      email: cleanEmail,
-      phone: formattedPhone,
-      ticket_type: ticketType || "General Pass",
-      amount: Number(amount),
-      status: "pending",
-      merchant_request_id: apiRef,
-      api_ref: apiRef,
-      payment_method: "M-PESA",
-    },
-  ]);
-
-  if (dbError) {
-    console.error("❌ Supabase Insert Error:", dbError);
-    return res.status(500).json({ error: "Failed to create pending ticket record." });
-  }
-
-  console.log("✅ Pending ticket pre-inserted into Supabase with api_ref:", apiRef);
-
-  // Step 2: Trigger IntaSend M-Pesa STK Push API
   try {
-    const intasendEndpoint = `${INTASEND_BASE_URL}/payment/mpesa-stk-push/`;
-    console.log(`📡 Dispatching STK Push to Endpoint (${isTestMode ? "Sandbox" : "Live"}): ${intasendEndpoint}`);
+    const { phone, email, amount, ticketType } = req.body;
 
-    const intasendResponse = await fetch(intasendEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.INTASEND_SECRET_KEY.trim()}`,
-      },
-      body: JSON.stringify({
-        public_key: process.env.INTASEND_PUBLIC_KEY.trim(),
-        currency: "KES",
+    if (!phone || !email || !amount) {
+      return res.status(400).json({ error: "Phone, email, and amount are required." });
+    }
+
+    console.log("📥 BUY TICKET REQUEST:", req.body);
+
+    const formattedPhone = formatPhoneNumber(phone);
+    const apiRef = `WAKOLOSAI-${Date.now()}`;
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Step A: Save PENDING record in Supabase FIRST
+    const { error: dbError } = await supabase.from("ticket_sales").insert([
+      {
         email: cleanEmail,
-        phone_number: formattedPhone,
+        phone: formattedPhone,
+        ticket_type: ticketType || "General Pass",
         amount: Number(amount),
+        status: "pending",
+        merchant_request_id: apiRef,
         api_ref: apiRef,
-      }),
-    });
+        payment_method: "M-PESA",
+      },
+    ]);
 
-    const intasendData = await intasendResponse.json();
+    if (dbError) {
+      console.error("❌ Supabase Insert Error:", dbError);
+      return res.status(500).json({ error: "Failed to create pending ticket record." });
+    }
 
+    console.log("✅ Pending ticket pre-inserted into Supabase with api_ref:", apiRef);
+
+    // Step B: Send POST request to IntaSend Checkout
+    const checkoutEndpoint = `${INTASEND_BASE_URL}/checkout/`;
+    const secretKey = (process.env.INTASEND_SECRET_KEY || "").trim();
+    const publicKey = (process.env.INTASEND_PUBLIC_KEY || "").trim();
+
+    console.log(`📡 Sending request to: ${checkoutEndpoint} (${isTestMode ? "Sandbox" : "Live"})`);
+
+    let intasendResponse;
+    let intasendData = {};
+
+    try {
+      intasendResponse = await fetch(checkoutEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${secretKey}`,
+        },
+        body: JSON.stringify({
+          public_key: publicKey,
+          currency: "KES",
+          email: cleanEmail,
+          phone_number: formattedPhone,
+          amount: Number(amount),
+          api_ref: apiRef,
+          method: "M-PESA",
+        }),
+      });
+
+      intasendData = await intasendResponse.json();
+    } catch (iErr) {
+      console.error("❌ IntaSend Network Exception:", iErr.message);
+      await supabase.from("ticket_sales").delete().eq("api_ref", apiRef);
+      return res.status(502).json({ error: "Failed to reach payment gateway." });
+    }
+
+    // Check HTTP Status Code
     if (!intasendResponse.ok) {
-      console.error("❌ IntaSend Checkout Failed:", intasendData);
-      // Clean up pre-inserted record if gateway auth or STK push fails
+      console.error("❌ IntaSend Checkout Failed:", JSON.stringify(intasendData, null, 2));
+      // Delete orphaned pending ticket
       await supabase.from("ticket_sales").delete().eq("api_ref", apiRef);
       return res.status(500).json({
         error: "Unable to initiate payment session with provider.",
@@ -153,36 +168,38 @@ app.post("/api/buy-ticket", async (req, res) => {
       });
     }
 
-    console.log("🟢 IntaSend Response Success:", intasendData);
+    console.log("🟢 IntaSend Response Success:", JSON.stringify(intasendData, null, 2));
 
-    const invoiceId = String(intasendData.invoice?.invoice_id || intasendData.id || apiRef);
+    const merchantReqId = String(
+      intasendData.id || intasendData.invoice?.invoice_id || apiRef
+    );
 
-    if (invoiceId !== apiRef) {
+    if (merchantReqId !== apiRef) {
       await supabase
         .from("ticket_sales")
-        .update({ merchant_request_id: invoiceId })
+        .update({ merchant_request_id: merchantReqId })
         .eq("api_ref", apiRef);
     }
 
     return res.status(200).json({
       success: true,
       message: "STK Push Initiated",
-      merchant_request_id: invoiceId,
+      merchant_request_id: merchantReqId,
       apiRef,
+      checkoutUrl: intasendData.url || null,
     });
-  } catch (iErr) {
-    console.error("❌ IntaSend Network Exception:", iErr.message);
-    await supabase.from("ticket_sales").delete().eq("api_ref", apiRef);
-    return res.status(502).json({ error: "Failed to reach payment gateway." });
+  } catch (error) {
+    console.error("❌ Buy Ticket Route Error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
 // 2. INTASEND CALLBACK / WEBHOOK ROUTE
 app.post("/api/callback", async (req, res) => {
   try {
-    console.log("🔔 Callback payload received:", JSON.stringify(req.body));
+    console.log("🔔 Callback payload received:", JSON.stringify(req.body, null, 2));
 
-    // A. Challenge Handshake: Respond ONLY if it's purely a test handshake ping without status
+    // A. Challenge Handshake Verification
     if (
       req.body.challenge &&
       !req.body.state &&
@@ -194,7 +211,7 @@ app.post("/api/callback", async (req, res) => {
       return res.status(200).json({ challenge: req.body.challenge });
     }
 
-    // B. Reconcile Database Entry by api_ref
+    // B. Payment Status Reconciliation
     const payload = req.body;
     const invoice = payload.invoice || payload;
     const rawStatus = payload.state || payload.status || invoice.state || invoice.status || "";
@@ -247,6 +264,12 @@ app.post("/api/callback", async (req, res) => {
         sale.amount,
         sale.api_ref
       );
+
+      if (emailSent) {
+        console.log("✅ Confirmation email sent.");
+      } else {
+        console.error("❌ Confirmation email failed.");
+      }
 
       return res.status(200).json({
         status: "processed",
