@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingBag, ArrowLeft, X, Trash2, Check, Smartphone, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingBag, ArrowLeft, X, Trash2, Check, Smartphone, Sparkles, ChevronRight } from "lucide-react";
 
 interface ColorOption {
   colorName: string;
@@ -173,25 +173,22 @@ export default function MerchShopPage() {
 
     setIsPaying(true);
 
+    // Build a readable summary string for ticket_type using items in cart
+    const itemSummary = cart
+      .map((item) => `${item.quantity}x ${item.product.name} (${item.selectedColor || "N/A"}, Size: ${item.selectedSize})`)
+      .join(", ");
+
     try {
-      const response = await fetch("https://wakolosai.onrender.com/api/buy-merch", {
+      // Reusing your verified, active /api/buy-ticket endpoint directly
+      const response = await fetch("https://wakolosai.onrender.com/api/buy-ticket", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName,
+          name: fullName,
           phone: phoneNumber,
-          email,
+          email: email,
           amount: cartTotal,
-          cart: cart.map((item) => ({
-            id: item.product.id,
-            name: item.selectedColor
-              ? `${item.product.name} (${item.selectedColor})`
-              : item.product.name,
-            size: item.selectedSize,
-            color: item.selectedColor || "N/A",
-            quantity: item.quantity,
-            price: item.product.price,
-          })),
+          ticketType: `Merch: ${itemSummary}`,
         }),
       });
 
@@ -206,8 +203,8 @@ export default function MerchShopPage() {
         setIsPaying(false);
       }
     } catch (err) {
-      console.error("❌ Live STK Push Error:", err);
-      alert("Could not connect to the backend server.");
+      console.error("❌ STK Push Error:", err);
+      alert("Could not connect to the payment server.");
       setIsPaying(false);
     }
   };
@@ -296,7 +293,7 @@ export default function MerchShopPage() {
                     </span>
                   )}
 
-                  {/* Front/Back Flip Switcher for Tees */}
+                  {/* Front/Back Switcher */}
                   {activeColor && (
                     <button
                       onClick={() => toggleView(product.id)}
@@ -320,7 +317,7 @@ export default function MerchShopPage() {
                     {product.description}
                   </p>
 
-                  {/* Color Selector (Tees) */}
+                  {/* Color Selector */}
                   {product.colors && (
                     <div className="mb-6">
                       <p className="text-xs uppercase text-gray-400 mb-2 font-serif italic">
@@ -571,5 +568,4 @@ export default function MerchShopPage() {
   );
 }
 
-// Added alias exports to resolve Next.js / TypeScript import errors:
 export { MerchShopPage as CollectionSection };
