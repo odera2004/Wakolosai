@@ -66,6 +66,15 @@ export function CollectionSection() {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://wakolosai.onrender.com";
 
+  // Helper to format Kenya phone numbers to 254...
+  const formatPhoneNumber = (input: string) => {
+    let cleaned = input.replace(/\D/g, "");
+    if (cleaned.startsWith("0")) {
+      cleaned = "254" + cleaned.slice(1);
+    }
+    return cleaned;
+  };
+
   // Sync inventory with DB
   useEffect(() => {
     fetch(`${apiUrl}/api/ticket-tiers`)
@@ -100,7 +109,7 @@ export function CollectionSection() {
     }));
   };
 
-  // Calculates normal total vs KES 1 test total
+  // Raw calculated total
   const rawTotalAmount = tiers.reduce(
     (sum, tier) => sum + tier.price * (quantities[tier.id] || 0),
     0
@@ -117,6 +126,8 @@ export function CollectionSection() {
 
     setLoading(true);
 
+    const formattedPhone = formatPhoneNumber(phone.trim());
+
     const ticketSummary = Object.entries(quantities)
       .filter(([_, qty]) => qty > 0)
       .map(([id, qty]) => {
@@ -130,9 +141,9 @@ export function CollectionSection() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phone: phone.trim(),
+          phone: formattedPhone,
           email: email.toLowerCase().trim(),
-          amount: finalCheckoutAmount, // Sends 1 when test mode is active
+          amount: finalCheckoutAmount,
           ticketType: ticketSummary,
           tierBreakdown: quantities,
           isSupport: false,
@@ -163,13 +174,14 @@ export function CollectionSection() {
     }
 
     setSupportLoading(true);
+    const formattedPhone = formatPhoneNumber(supportPhone.trim());
 
     try {
       const res = await fetch(`${apiUrl}/api/buy-ticket`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phone: supportPhone.trim(),
+          phone: formattedPhone,
           email: supportEmail.toLowerCase().trim(),
           amount: amt,
           ticketType: `Support Offering (KES ${amt})`,
