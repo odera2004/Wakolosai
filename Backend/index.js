@@ -10,11 +10,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Guard: Environmental Variable Checklist
+// Guard: Check for essential environment variables on startup
 const requiredKeys = [
   "SUPABASE_URL",
   "SUPABASE_ANON_KEY",
-  "INTASEND_SECRET_KEY",
   "INTASEND_PUBLIC_KEY",
   "RESEND_API_KEY",
 ];
@@ -32,8 +31,7 @@ const supabase = createClient(
 
 const resend = new Resend(process.env.RESEND_API_KEY || "");
 
-// IntaSend Domain Selection
-// If INTASEND_TEST_MODE="true", calls go to sandbox.intasend.com; otherwise payment.intasend.com
+// IntaSend Domain Routing
 const isTestMode = process.env.INTASEND_TEST_MODE === "true";
 const INTASEND_BASE_URL = isTestMode
   ? "https://sandbox.intasend.com/api/v1"
@@ -51,7 +49,7 @@ function formatPhoneNumber(phone) {
   return cleaned;
 }
 
-// Helper: Send Pass Email via Resend
+// Helper: Send Pass Email via Resend API
 async function sendTicketEmail(toEmail, ticketType, amount, refId) {
   try {
     console.log(`📧 Attempting to send ticket email to: ${toEmail}...`);
@@ -101,7 +99,7 @@ app.post("/api/buy-ticket", async (req, res) => {
     const apiRef = `WAKOLOSAI-${Date.now()}`;
     const cleanEmail = email.toLowerCase().trim();
 
-    // Step A: Save PENDING record in Supabase FIRST
+    // Step A: Pre-insert ticket into Supabase as "pending"
     const { error: dbError } = await supabase.from("ticket_sales").insert([
       {
         email: cleanEmail,
@@ -122,12 +120,11 @@ app.post("/api/buy-ticket", async (req, res) => {
 
     console.log("✅ Pending ticket pre-inserted into Supabase with api_ref:", apiRef);
 
-    // Step B: Send POST request to IntaSend Checkout
+    // Step B: Send POST request to IntaSend Checkout WITHOUT Authorization header
     const checkoutEndpoint = `${INTASEND_BASE_URL}/checkout/`;
-    const secretKey = (process.env.INTASEND_SECRET_KEY || "").trim();
     const publicKey = (process.env.INTASEND_PUBLIC_KEY || "").trim();
 
-    console.log(`📡 Sending request to: ${checkoutEndpoint} (${isTestMode ? "Sandbox" : "Live"})`);
+    console.log(`📡 Sending Public Checkout Request to: ${checkoutEndpoint} (${isTestMode ? "Sandbox" : "Live"})`);
 
     let intasendResponse;
     let intasendData = {};
@@ -137,7 +134,6 @@ app.post("/api/buy-ticket", async (req, res) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${secretKey}`,
         },
         body: JSON.stringify({
           public_key: publicKey,
