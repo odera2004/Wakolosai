@@ -21,7 +21,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANO
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const intasend = new IntaSend(
-  process.env.INTASEND_PUBLISHABLE_KEY,
+  process.env.INTASEND_PUBLIC_KEY,
   process.env.INTASEND_SECRET_KEY,
   process.env.INTASEND_TEST_MODE === "true" // set to false for production
 );
