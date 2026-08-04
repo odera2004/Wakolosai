@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { FadeImage } from "@/components/ui/fade-image";
-import { Loader2, Ticket, Calendar, MapPin, Clock, ShieldCheck, Sparkles, Heart, TestTube } from "lucide-react";
+import { Loader2, Ticket, Calendar, MapPin, Clock, ShieldCheck, Sparkles, Heart } from "lucide-react";
 
 interface TicketTier {
   id: string;
@@ -18,7 +18,7 @@ const INITIAL_TIERS: TicketTier[] = [
   {
     id: "early-bird",
     name: "Early Bird",
-    description: "Limited early availability.",
+    description: "Limited availability pass.",
     price: 800,
     image: "/images/bill-6.png",
     capacity: 20,
@@ -55,9 +55,6 @@ export function CollectionSection() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // TEMPORARY TEST MODE STATE
-  const [isTestMode, setIsTestMode] = useState<boolean>(true);
-
   // Support / Donation state
   const [supportAmount, setSupportAmount] = useState<string>("");
   const [supportPhone, setSupportPhone] = useState("");
@@ -66,18 +63,20 @@ export function CollectionSection() {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://wakolosai.onrender.com";
 
-  // Robust Kenya phone formatter to strictly output 254XXXXXXXXX (12 digits)
+  // Strict Kenyan Phone Formatter (Outputs exactly 254XXXXXXXXX - 12 digits)
   const formatPhoneNumber = (input: string) => {
     let cleaned = input.trim().replace(/\D/g, "");
-    if (cleaned.startsWith("0")) {
+    if (cleaned.startsWith("0") && cleaned.length === 10) {
       cleaned = "254" + cleaned.slice(1);
-    } else if (cleaned.startsWith("7") || cleaned.startsWith("1")) {
+    } else if ((cleaned.startsWith("7") || cleaned.startsWith("1")) && cleaned.length === 9) {
       cleaned = "254" + cleaned;
+    } else if (cleaned.startsWith("254") && cleaned.length === 12) {
+      // already in standard 254XXXXXXXXX format
     }
     return cleaned;
   };
 
-  // Sync inventory with DB
+  // Sync inventory with backend DB
   useEffect(() => {
     fetch(`${apiUrl}/api/ticket-tiers`)
       .then((res) => res.json())
@@ -111,18 +110,14 @@ export function CollectionSection() {
     }));
   };
 
-  // Raw calculated total
-  const rawTotalAmount = tiers.reduce(
+  // Actual ticket total calculation
+  const totalCheckoutAmount = tiers.reduce(
     (sum, tier) => sum + tier.price * (quantities[tier.id] || 0),
     0
   );
-  
-  const hasSelectedTickets = Object.values(quantities).some((qty) => qty > 0);
-  const finalCheckoutAmount = isTestMode && hasSelectedTickets ? 1 : rawTotalAmount;
 
-  // Final support amount respecting test mode
+  const hasSelectedTickets = Object.values(quantities).some((qty) => qty > 0);
   const rawSupportAmt = Math.max(0, Number(supportAmount) || 0);
-  const finalSupportAmount = isTestMode && rawSupportAmt > 0 ? 1 : rawSupportAmt;
 
   // Ticket Checkout Handler
   const handleCheckout = async () => {
@@ -133,7 +128,7 @@ export function CollectionSection() {
     }
 
     if (formattedPhone.length !== 12) {
-      return alert("Please enter a valid Kenyan phone number (e.g. 0712345678).");
+      return alert("Please enter a valid Kenyan phone number (e.g. 0712345678 or 0708486624).");
     }
 
     setLoading(true);
@@ -142,7 +137,7 @@ export function CollectionSection() {
       .filter(([_, qty]) => qty > 0)
       .map(([id, qty]) => {
         const tierName = tiers.find((t) => t.id === id)?.name;
-        return `${qty}x ${tierName}${isTestMode ? " (Test Mode)" : ""}`;
+        return `${qty}x ${tierName}`;
       })
       .join(", ");
 
@@ -153,7 +148,7 @@ export function CollectionSection() {
         body: JSON.stringify({
           phone: formattedPhone,
           email: email.toLowerCase().trim(),
-          amount: finalCheckoutAmount,
+          amount: totalCheckoutAmount,
           ticketType: ticketSummary,
           tierBreakdown: quantities,
           isSupport: false,
@@ -163,14 +158,14 @@ export function CollectionSection() {
       const data = await res.json();
 
       if (res.ok) {
-        alert(`✅ M-Pesa STK Push Sent for KES ${finalCheckoutAmount}! Enter your PIN on your phone to complete your ticket purchase.`);
+        alert(`✅ M-Pesa STK Push Sent for KES ${totalCheckoutAmount.toLocaleString()}! Enter your PIN on your phone to complete your ticket purchase.`);
         setQuantities({ "early-bird": 0, advanced: 0, gate: 0 });
       } else {
         alert(`❌ ${data.error || "STK Push failed."}`);
       }
     } catch (err) {
       console.error("Connection Error:", err);
-      alert("❌ Connection failed. Ensure your server is online.");
+      alert("❌ Connection failed. Ensure your backend server is running.");
     } finally {
       setLoading(false);
     }
@@ -182,7 +177,7 @@ export function CollectionSection() {
     const cleanEmail = supportEmail.toLowerCase().trim();
 
     if (!cleanEmail || !supportPhone.trim() || rawSupportAmt <= 0) {
-      return alert("Please enter a valid amount, phone number, and email to send support.");
+      return alert("Please enter a valid amount, phone number, and email address.");
     }
 
     if (formattedPhone.length !== 12) {
@@ -198,7 +193,7 @@ export function CollectionSection() {
         body: JSON.stringify({
           phone: formattedPhone,
           email: cleanEmail,
-          amount: finalSupportAmount,
+          amount: rawSupportAmt,
           ticketType: `Support Offering (KES ${rawSupportAmt})`,
           isSupport: true,
         }),
@@ -207,7 +202,7 @@ export function CollectionSection() {
       const data = await res.json();
 
       if (res.ok) {
-        alert(`✅ STK Push Sent for KES ${finalSupportAmount}! Enter your M-Pesa PIN on your phone to complete your support contribution.`);
+        alert(`✅ STK Push Sent for KES ${rawSupportAmt.toLocaleString()}! Enter your M-Pesa PIN on your phone to complete your offering.`);
         setSupportAmount("");
       } else {
         alert(`❌ ${data.error || "Failed to trigger STK Push."}`);
@@ -277,7 +272,7 @@ export function CollectionSection() {
                           </span>
                         ) : tier.capacity !== null ? (
                           <span className="text-[10px] font-serif italic bg-[#FFB800]/10 text-[#FFB800] font-bold px-2.5 py-1 rounded-full border border-[#FFB800]/30 uppercase">
-                            Limited Spots
+                            Limited Offer
                           </span>
                         ) : (
                           <span className="text-[10px] font-serif italic bg-white/10 text-gray-300 font-bold px-2.5 py-1 rounded-full border border-white/20 uppercase">
@@ -291,7 +286,7 @@ export function CollectionSection() {
                     <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/5">
                       <div>
                         <span className="text-2xl font-black text-[#FFB800]">
-                          KES {isTestMode ? "1 (Test)" : tier.price.toLocaleString()}
+                          KES {tier.price.toLocaleString()}
                         </span>
                         <span className="text-[10px] font-serif italic text-gray-500 uppercase block">per pass</span>
                       </div>
@@ -340,7 +335,7 @@ export function CollectionSection() {
                 </h3>
               </div>
               <p className="text-xs text-gray-400 font-serif italic mb-6 leading-relaxed">
-                Want to partner with us or send a love offering? You can support the awakening with any amount via M-Pesa.
+                Want to partner with us or send a love offering? You can support the event with any amount via M-Pesa.
               </p>
 
               <div className="space-y-4">
@@ -403,7 +398,7 @@ export function CollectionSection() {
                   className="w-full bg-gradient-to-r from-[#FFB800] to-[#e0a200] hover:opacity-90 active:scale-[0.98] text-black font-extrabold text-xs uppercase tracking-widest py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   {supportLoading ? <Loader2 className="animate-spin text-black" size={16} /> : <Heart size={16} className="fill-black" />}
-                  {supportLoading ? "Sending STK Push..." : `Send Support (KES ${finalSupportAmount.toLocaleString()}${isTestMode ? " - Test Mode" : ""})`}
+                  {supportLoading ? "Sending STK Push..." : `Send Offering (KES ${rawSupportAmt ? rawSupportAmt.toLocaleString() : "0"})`}
                 </button>
               </div>
             </div>
@@ -450,26 +445,10 @@ export function CollectionSection() {
 
             {/* CHECKOUT CARD */}
             <div className="bg-neutral-900 p-6 md:p-8 rounded-3xl border border-white/10 shadow-2xl">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-serif italic font-black uppercase tracking-widest text-gray-400">
-                  2. Reservation Details
-                </h3>
+              <h3 className="text-sm font-serif italic font-black uppercase tracking-widest text-gray-400 mb-6">
+                2. Reservation Details
+              </h3>
 
-                {/* TEMPORARY KES 1 TEST TOGGLE */}
-                <button
-                  type="button"
-                  onClick={() => setIsTestMode(!isTestMode)}
-                  className={`flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full border transition-all ${
-                    isTestMode
-                      ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
-                      : "bg-white/5 text-gray-500 border-white/10 hover:text-white"
-                  }`}
-                >
-                  <TestTube size={12} />
-                  {isTestMode ? "Test Mode: KES 1" : "Live Pricing"}
-                </button>
-              </div>
-              
               <div className="space-y-5">
                 <div>
                   <label className="text-[10px] font-serif italic font-black uppercase tracking-widest text-gray-400 block mb-2">
@@ -477,7 +456,7 @@ export function CollectionSection() {
                   </label>
                   <input
                     type="tel"
-                    placeholder="07XX XXX XXX or 2547..."
+                    placeholder="07XX XXX XXX or 0708486624"
                     className="w-full bg-black border border-white/15 rounded-xl px-4 py-3.5 text-sm text-white placeholder-gray-600 outline-none focus:border-[#FFB800] transition-colors"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
@@ -501,14 +480,14 @@ export function CollectionSection() {
                   <div className="flex justify-between items-end mb-6">
                     <div>
                       <span className="text-[10px] font-serif italic text-gray-400 uppercase tracking-widest font-bold block">
-                        Total Amount {isTestMode && "(Testing)"}
+                        Total Amount
                       </span>
                       <span className="text-xs font-serif italic text-gray-500">
-                        {isTestMode ? "Overridden to KES 1" : "Includes all taxes"}
+                        Includes all taxes
                       </span>
                     </div>
                     <span className="text-3xl font-black text-[#FFB800]">
-                      KES {finalCheckoutAmount.toLocaleString()}
+                      KES {totalCheckoutAmount.toLocaleString()}
                     </span>
                   </div>
 
@@ -518,7 +497,7 @@ export function CollectionSection() {
                     className="w-full bg-[#FFB800] hover:bg-[#e0a200] active:scale-[0.98] text-black font-extrabold text-xs md:text-sm uppercase tracking-widest py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 shadow-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#FFB800]"
                   >
                     {loading ? <Loader2 className="animate-spin text-black" size={18} /> : <Ticket size={18} />}
-                    {loading ? "Triggering M-Pesa..." : `Pay KES ${finalCheckoutAmount} via M-Pesa`}
+                    {loading ? "Triggering M-Pesa..." : `Pay KES ${totalCheckoutAmount.toLocaleString()} via M-Pesa`}
                   </button>
                 </div>
               </div>
