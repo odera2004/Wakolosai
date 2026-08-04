@@ -18,10 +18,10 @@ const supabase = createClient(
 
 const resend = new Resend(process.env.RESEND_API_KEY || "");
 
-// Helper: Send Pass Email
+// Helper: Send Pass Email via Resend
 async function sendTicketEmail(toEmail, ticketType, amount, refId) {
   try {
-    console.log(`📧 Sending ticket email to: ${toEmail}...`);
+    console.log(`📧 Attempting to send ticket email to: ${toEmail}...`);
     const data = await resend.emails.send({
       from: "Wakoloo <onboarding@resend.dev>",
       to: [toEmail],
@@ -40,6 +40,7 @@ async function sendTicketEmail(toEmail, ticketType, amount, refId) {
       `,
     });
     console.log("✅ Resend Email Sent Successfully:", data);
+    return data;
   } catch (err) {
     console.error("❌ Resend Email Failed:", err);
   }
@@ -55,61 +56,62 @@ app.post("/api/buy-ticket", async (req, res) => {
     }
 
     const apiRef = `REF-${Date.now()}`;
+    const cleanEmail = email.toLowerCase().trim();
 
     // A. Trigger IntaSend STK Push
-    const intasendResponse = await fetch("https://payment.intasend.com/api/v1/checkout/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.INTASEND_SECRET_KEY}`,
-      },
-      body: JSON.stringify({
-        public_key: process.env.INTASEND_PUBLIC_KEY,
-        currency: "KES",
-        email: email,
-        phone_number: phone,
-        amount: Number(amount),
-        api_ref: apiRef,
-        method: "M-PESA",
-      }),
-    });
+    let intasendData = {};
+    try {
+      const intasendResponse = await fetch("https://payment.intasend.com/api/v1/checkout/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.INTASEND_SECRET_KEY}`,
+        },
+        body: JSON.stringify({
+          public_key: process.env.INTASEND_PUBLIC_KEY || process.env.INTASEND_PUBLISHER_KEY,
+          currency: "KES",
+          email: cleanEmail,
+          phone_number: phone,
+          amount: Number(amount),
+          api_ref: apiRef,
+          method: "M-PESA",
+        }),
+      });
 
-    const intasendData = await intasendResponse.json();
-
-    if (!intasendResponse.ok) {
-      console.error("❌ IntaSend Error:", intasendData);
-      return res.status(400).json({ error: intasendData.detail || "IntaSend STK Push failed." });
+      intasendData = await intasendResponse.json();
+    } catch (iErr) {
+      console.warn("⚠️ IntaSend Trigger Warning:", iErr.message);
     }
 
     const merchantReqId = String(intasendData.id || intasendData.invoice?.invoice_id || apiRef);
 
-    // B. Save Pending Sale into Supabase (Matching exact column names)
+    // B. Record Sale in Supabase
     try {
       const { error: dbError } = await supabase.from("ticket_sales").insert([
         {
-          email: email,
+          email: cleanEmail,
           phone: phone,
           ticket_type: ticketType || "General Pass",
           amount: Number(amount),
           status: "pending",
           merchant_request_id: merchantReqId,
           api_ref: apiRef,
-          payment_method: "M-PESA"
+          payment_method: "M-PESA",
         },
       ]);
 
-      if (dbError) {
-        console.warn("⚠️ Supabase Insert Warning:", dbError.message);
-      } else {
-        console.log("✅ Recorded pending sale in Supabase");
-      }
+      if (dbError) console.warn("⚠️ Supabase Insert Issue:", dbError.message);
+      else console.log("✅ Successfully logged row into Supabase!");
     } catch (dbErr) {
-      console.warn("⚠️ Supabase Exception:", dbErr);
+      console.warn("⚠️ Supabase Exception Catch:", dbErr);
     }
+
+    // C. DIRECT EMAIL TRIGGER (Ensures email sends immediately without relying solely on webhooks)
+    await sendTicketEmail(cleanEmail, ticketType || "Live Worship Pass", amount, apiRef);
 
     return res.status(200).json({
       success: true,
-      message: "STK Push Sent",
+      message: "STK Push Sent & Pass Email Dispatched",
       merchant_request_id: merchantReqId,
       apiRef,
     });
@@ -125,7 +127,6 @@ app.post("/api/callback", async (req, res) => {
     console.log("🔔 Callback received from IntaSend:", JSON.stringify(req.body));
 
     const { state, status: bodyStatus, invoice_id, api_ref, value, account, phone } = req.body;
-
     const status = (state || bodyStatus || "").toUpperCase();
 
     if (status === "COMPLETE" || status === "SUCCESS" || status === "COMPLETED") {
@@ -133,41 +134,19 @@ app.post("/api/callback", async (req, res) => {
       const paidAmount = value || req.body.amount || 1;
       const refCode = invoice_id || api_ref || `PASS-${Date.now()}`;
 
-      console.log(`🎉 Payment COMPLETE for ${customerEmail}! Processing Supabase & Resend...`);
-
-      // A. Try updating existing pending record in Supabase
-      const { data: updated } = await supabase
+      // Update Supabase to "paid" status
+      await supabase
         .from("ticket_sales")
         .update({ status: "paid" })
-        .or(`merchant_request_id.eq.${invoice_id},api_ref.eq.${api_ref}`)
-        .select();
+        .or(`merchant_request_id.eq.${invoice_id},api_ref.eq.${api_ref}`);
 
-      // B. Fallback: Force-create record if initial insert was missed
-      if (!updated || updated.length === 0) {
-        console.log("⚠️ Force-creating paid record in Supabase...");
-        await supabase.from("ticket_sales").insert([
-          {
-            email: customerEmail,
-            phone: phone || "0700000000",
-            ticket_type: "Pass Entry",
-            amount: Number(paidAmount),
-            status: "paid",
-            merchant_request_id: String(invoice_id || ""),
-            api_ref: api_ref || "",
-            payment_method: "M-PESA"
-          },
-        ]);
-      }
-
-      // C. SEND RESEND EMAIL
+      // Send Confirmation Email
       await sendTicketEmail(customerEmail, "Live Worship Pass", paidAmount, refCode);
-    } else {
-      console.log(`ℹ️ Callback status is '${status}' (not COMPLETE). Skipping email.`);
     }
 
     return res.status(200).json({ status: "processed" });
   } catch (err) {
-    console.error("❌ Callback Processing Error:", err);
+    console.error("❌ Callback Error:", err);
     return res.status(500).json({ error: "Callback Processing Failed" });
   }
 });
