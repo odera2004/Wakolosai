@@ -53,7 +53,7 @@ async function sendTicketEmail(toEmail, ticketType, amount, refId) {
   }
 }
 
-// 1. INITIATE PAYMENT ROUTE (M-Pesa STK Push Popup)
+// 1. INITIATE PAYMENT ROUTE
 app.post("/api/buy-ticket", async (req, res) => {
   try {
     const { phone, email, amount, ticketType } = req.body;
@@ -89,18 +89,12 @@ app.post("/api/buy-ticket", async (req, res) => {
 
     console.log("✅ Pending ticket pre-inserted into Supabase with api_ref:", apiRef);
 
-    // 3. Select correct IntaSend M-Pesa STK Push URL (Sandbox vs Production)
-    const isTestMode = process.env.INTASEND_TEST_MODE === "true";
-    const intasendStkUrl = isTestMode
-      ? "https://sandbox.intasend.com/api/v1/payment/mpesa-stk-push/"
-      : "https://payment.intasend.com/api/v1/payment/mpesa-stk-push/";
-
-    // 4. Call IntaSend Direct M-Pesa STK Push API
+    // 3. Call IntaSend Checkout API
     let intasendResponse;
     let intasendData = {};
 
     try {
-      intasendResponse = await fetch(intasendStkUrl, {
+      intasendResponse = await fetch("https://payment.intasend.com/api/v1/checkout/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -113,6 +107,7 @@ app.post("/api/buy-ticket", async (req, res) => {
           phone_number: phone,
           amount: Number(amount),
           api_ref: apiRef,
+          method: "M-PESA",
         }),
       });
 
@@ -126,18 +121,20 @@ app.post("/api/buy-ticket", async (req, res) => {
 
     // Verify HTTP Status
     if (!intasendResponse.ok) {
-      console.error("❌ IntaSend M-Pesa STK Push Failed:", intasendData);
+      console.error("❌ IntaSend Checkout Failed:", intasendData);
       await supabase.from("ticket_sales").delete().eq("api_ref", apiRef);
-      return res.status(500).json({ 
-        error: "Unable to trigger M-Pesa popup.", 
-        details: intasendData?.errors || intasendData 
-      });
+      return res.status(500).json({ error: "Unable to initiate payment session with provider." });
     }
 
-    console.log("🟢 IntaSend STK Push Triggered Successfully:", intasendData);
+    // Verify Payload Integrity
+    if (!intasendData.id && !intasendData.invoice) {
+      console.error("⚠️ Unexpected IntaSend response format:", intasendData);
+    }
+
+    console.log("🟢 IntaSend Response Success:", intasendData);
 
     const merchantReqId = String(
-      intasendData.invoice?.invoice_id || intasendData.id || apiRef
+      intasendData.id || intasendData.invoice?.invoice_id || apiRef
     );
 
     // Update merchant_request_id if an official ID was returned
@@ -150,7 +147,7 @@ app.post("/api/buy-ticket", async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "STK Push Popup Triggered on Phone",
+      message: "STK Push Initiated",
       merchant_request_id: merchantReqId,
       apiRef,
     });
